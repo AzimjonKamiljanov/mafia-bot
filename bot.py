@@ -110,6 +110,72 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
         if await process_admin_ai_message(update, context):
             return
 
+    # 3. Handle intuitive slash-free text commands in private chat
+    lower = text.lower().strip()
+    if lower in ("salom", "assalom", "assalomu alaykum", "assalomualaykum", "salomlar", "hello", "hi"):
+        await salom_cmd(update, context)
+        return
+    if lower in ("profil", "profile", "profilim", "mening profilim", "shaxsiy"):
+        await profile_cmd(update, context)
+        return
+    if lower in ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "coin", "gold", "wallet"):
+        await balance_cmd(update, context)
+        return
+    if lower in ("dokon", "do'kon", "shop", "magazin", "bozor"):
+        from handlers.shop import shop_cmd
+        await shop_cmd(update, context)
+        return
+    if lower in ("reyting", "rating", "top", "top10", "top 10", "top 15", "leaderboard"):
+        await rating_cmd(update, context)
+        return
+    if lower in ("rollar", "guide", "qo'llanma", "qollanma", "yordam", "help", "qoidalar"):
+        await guide_cmd(update, context)
+        return
+    if lower in ("vasiyat", "vasiyatnoma", "will"):
+        await will_cmd(update, context)
+        return
+    if lower in ("klan", "clan", "sindikat", "oila"):
+        from handlers.clans import clan_cmd
+        await clan_cmd(update, context)
+        return
+    if lower in ("stats", "statistika", "holat"):
+        from handlers.admin_panel import stats_cmd
+        await stats_cmd(update, context)
+        return
+    if lower in ("start", "menu", "menyu", "bosh menyu"):
+        await start_cmd(update, context)
+        return
+    if lower in ("reja", "plan", "mexanika"):
+        await plan_cmd(update, context)
+        return
+    if lower in ("boost", "premium", "vip"):
+        await boost_cmd(update, context)
+        return
+    if lower in ("oyin", "o'yin", "game", "play", "boshlash"):
+        from config import BOT_USERNAME
+        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+        add_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")]
+        ])
+        await update.message.reply_text(
+            "🎮 <b>Mafia O'yini</b>\n\n"
+            "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+            "O'yin boshlash uchun botni guruhingizga qo'shing va guruhda <b>/game</b> buyrug'ini yuboring!",
+            reply_markup=add_kb,
+            parse_mode="HTML"
+        )
+        return
+
+    # Default fallback for unhandled PM text: welcome and navigation keyboard
+    from handlers.commands import main_menu_keyboard
+    adm = is_admin(uid, getattr(update.effective_user, "username", ""))
+    await update.message.reply_text(
+        "👋 <b>Detektiv Mafia Bot</b>\n\n"
+        "Quyidagi menyu orqali kerakli bo'limni tanlang:",
+        reply_markup=main_menu_keyboard(adm),
+        parse_mode="HTML"
+    )
+
 async def post_init(app: Application):
     """Initialize DB and configure Telegram Bot commands list with strict scopes."""
     await init_db()
@@ -171,6 +237,28 @@ async def post_init(app: Application):
         log.warning("Could not set bot commands: %s", e)
 
 from telegram.request import HTTPXRequest
+from telegram.ext import ExtBot
+
+class SafeExtBot(ExtBot):
+    """ExtBot subclass that automatically sanitizes <tg-emoji> tags from outgoing messages."""
+    async def _do_post(self, endpoint, data=None, *args, **kwargs):
+        if data and isinstance(data, dict):
+            for k in ("text", "caption"):
+                if k in data and isinstance(data[k], str) and "<tg-emoji" in data[k]:
+                    from core.visuals import strip_anim_emoji_tags
+                    data[k] = strip_anim_emoji_tags(data[k])
+        return await super()._do_post(endpoint, data, *args, **kwargs)
+
+async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    log.error("Unhandled exception while processing update: %s", context.error, exc_info=context.error)
+    if isinstance(update, Update) and update.effective_message:
+        try:
+            await update.effective_message.reply_text(
+                "⚠️ <i>Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring yoki /start buyrug'ini bering.</i>",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
 def create_bot_app() -> Application:
     if not BOT_TOKEN:
@@ -182,38 +270,40 @@ def create_bot_app() -> Application:
         read_timeout=30.0,
         write_timeout=30.0
     )
-    app = Application.builder().token(BOT_TOKEN).request(request).post_init(post_init).build()
+    bot = SafeExtBot(BOT_TOKEN, request=request)
+    app = Application.builder().bot(bot).post_init(post_init).build()
+    app.add_error_handler(global_error_handler)
 
     # Core commands
-    app.add_handler(CommandHandler("start", start_cmd))
+    app.add_handler(CommandHandler(["start"], start_cmd))
     app.add_handler(CommandHandler(["salom", "assalom", "assalomualaykum", "salomlar", "hello", "hi"], salom_cmd))
     app.add_handler(CommandHandler(["startgame", "boshlash", "start_game", "play", "go"], startgame_cmd))
     app.add_handler(CommandHandler(["game", "oyun", "oyin"], create_lobby))
     app.add_handler(CommandHandler(["settings", "sozlama", "sozlamalar"], settings_cmd))
-    app.add_handler(CommandHandler(["admin", "panel"], admin_cmd))
-    app.add_handler(CommandHandler(["plan", "reja"], plan_cmd))
-    app.add_handler(CommandHandler(["boost", "premium"], boost_cmd))
-    app.add_handler(CommandHandler(["call", "chaqir", "tagall"], call_players_cmd))
-    app.add_handler(CommandHandler("will", will_cmd))
-    app.add_handler(CommandHandler("reveal", reveal_cmd))
-    app.add_handler(CommandHandler("profile", profile_cmd))
-    app.add_handler(CommandHandler("balance", balance_cmd))
-    app.add_handler(CommandHandler("rating", rating_cmd))
-    app.add_handler(CommandHandler("guide", guide_cmd))
-    app.add_handler(CommandHandler("stop", stop_cmd))
+    app.add_handler(CommandHandler(["admin", "panel", "boshqaruv"], admin_cmd))
+    app.add_handler(CommandHandler(["plan", "reja", "mexanika"], plan_cmd))
+    app.add_handler(CommandHandler(["boost", "premium", "vip"], boost_cmd))
+    app.add_handler(CommandHandler(["call", "chaqir", "tagall", "chorlov"], call_players_cmd))
+    app.add_handler(CommandHandler(["will", "vasiyat", "vasiyatnoma"], will_cmd))
+    app.add_handler(CommandHandler(["reveal", "mer"], reveal_cmd))
+    app.add_handler(CommandHandler(["profile", "profil", "me", "shaxsiy"], profile_cmd))
+    app.add_handler(CommandHandler(["balance", "balans", "hisob", "pul", "wallet"], balance_cmd))
+    app.add_handler(CommandHandler(["rating", "reyting", "top", "leaderboard"], rating_cmd))
+    app.add_handler(CommandHandler(["guide", "qollanma", "yordam", "help", "rules", "rollar"], guide_cmd))
+    app.add_handler(CommandHandler(["stop", "toxtat"], stop_cmd))
     app.add_handler(CommandHandler(["chiqish", "leave", "tark"], chiqish_cmd))
-    app.add_handler(CommandHandler("shop", shop_cmd))
-    app.add_handler(CommandHandler("clan", clan_cmd))
-    app.add_handler(CommandHandler("newclan", newclan_cmd))
-    app.add_handler(CommandHandler(["stats", "statistika"], stats_cmd))
+    app.add_handler(CommandHandler(["shop", "dokon", "magazin", "bozor"], shop_cmd))
+    app.add_handler(CommandHandler(["clan", "klan", "sindikat", "oila"], clan_cmd))
+    app.add_handler(CommandHandler(["newclan", "yangi_klan", "yangiklan"], newclan_cmd))
+    app.add_handler(CommandHandler(["stats", "statistika", "holat"], stats_cmd))
 
     # Social commands
     app.add_handler(CommandHandler("para", para_cmd))
     app.add_handler(CommandHandler("dpara", dpara_cmd))
-    app.add_handler(CommandHandler("mypara", mypara_cmd))
+    app.add_handler(CommandHandler(["mypara", "juftlik", "juftim"], mypara_cmd))
     app.add_handler(CommandHandler("bro", bro_cmd))
     app.add_handler(CommandHandler("dbro", dbro_cmd))
-    app.add_handler(CommandHandler("mybro", mybro_cmd))
+    app.add_handler(CommandHandler(["mybro", "birodar", "broim"], mybro_cmd))
     app.add_handler(CommandHandler("givegul", givegul_cmd))
     app.add_handler(CommandHandler(["send", "drop", "golddrop"], send_cmd))
     app.add_handler(CommandHandler(["coin", "givecoin", "sendcoin"], coin_cmd))

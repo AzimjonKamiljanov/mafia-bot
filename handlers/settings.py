@@ -107,7 +107,8 @@ def build_roles_keyboard(chat_id: int, page: int, disabled: set) -> InlineKeyboa
 async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    if not chat or not user:
+    msg = update.message or update.effective_message
+    if not chat or not user or not msg:
         return
 
     # Check admin in group, or global admin
@@ -115,18 +116,34 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(user.id, user.username):
             member = await context.bot.get_chat_member(chat.id, user.id)
             if member.status not in ("administrator", "creator"):
-                await update.message.reply_text("❌ Faqat guruh adminlari yoki Super Admin sozlamalarni o'zgartira oladi.")
+                await msg.reply_text("❌ Faqat guruh adminlari yoki Super Admin sozlamalarni o'zgartira oladi.")
                 return
         target_chat_id = chat.id
         title = html.escape(chat.title or "Guruh")
     else:
-        # In PM: if admin, show admin panel or settings for recent group
+        # In PM: if admin, check if target chat_id is passed as arg, otherwise show admin panel
         if is_admin(user.id, user.username):
-            from handlers.admin_panel import admin_cmd
-            await admin_cmd(update, context)
+            if context.args and len(context.args) > 0 and context.args[0].lstrip("-").isdigit():
+                target_chat_id = int(context.args[0])
+                title = f"Guruh ({target_chat_id})"
+            else:
+                from handlers.admin_panel import admin_cmd
+                await admin_cmd(update, context)
+                return
+        else:
+            from config import BOT_USERNAME
+            pm_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await msg.reply_text(
+                "⚙️ <b>O'yin va Guruh Sozlamalari</b>\n\n"
+                "O'yin vaqtlari (tun/kun davomiyligi) va rollarni yoqish/o'chirish faqat <b>Telegram guruhlarida</b> ishlaydi.\n\n"
+                "Sozlamalarni o'zgartirish uchun botni guruhingizga qo'shing va o'sha guruhda <code>/settings</code> buyrug'ini yuboring!",
+                reply_markup=pm_kb,
+                parse_mode="HTML"
+            )
             return
-        target_chat_id = chat.id
-        title = "Shaxsiy Sozlamalar"
 
     settings = await get_chat_settings(target_chat_id)
     night = settings.get("night_seconds", DEFAULT_NIGHT_SECONDS)
@@ -152,7 +169,7 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "O'zgartirish uchun quyidagi tugmalardan birini tanlang 👇"
     )
 
-    await update.message.reply_text(
+    await msg.reply_text(
         text=text,
         reply_markup=build_settings_menu_keyboard(target_chat_id),
         parse_mode="HTML"

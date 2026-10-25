@@ -14,8 +14,14 @@ from core.engine import active_drops
 log = logging.getLogger("detektiv.handlers.social")
 
 async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg or not msg.reply_to_message:
+    msg = update.message or update.effective_message
+    chat = update.effective_chat
+    if not msg:
+        return
+    if chat and chat.type == "private":
+        await msg.reply_text("ℹ️ Juftlik (Para) hosil qilish faqat Telegram guruhlarida ikkinchi insonning xabariga 'Reply' qilish orqali amalga oshiriladi.")
+        return
+    if not msg.reply_to_message:
         await msg.reply_text("💍 /para ishlatish uchun kerakli insonning xabariga Reply qiling.")
         return
 
@@ -52,8 +58,10 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text(f"💍 *{requester.full_name}* va *{target.full_name}* muvaffaqiyatli juftlik (Para) bo'ldilar!", parse_mode="Markdown")
 
 async def dpara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    user = msg.from_user
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
     db = await get_db()
     async with db.execute("SELECT other_id FROM social_links WHERE user_id = ? AND kind = 'para'", (user.id,)) as cursor:
         row = await cursor.fetchone()
@@ -98,8 +106,14 @@ async def mypara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text(f"💍 Sizning juftingiz: <b>{html.escape(name)}</b>", parse_mode="HTML")
 
 async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg or not msg.reply_to_message:
+    msg = update.message or update.effective_message
+    chat = update.effective_chat
+    if not msg:
+        return
+    if chat and chat.type == "private":
+        await msg.reply_text("ℹ️ Birodarlik (Bro) rishtasini bog'lash faqat Telegram guruhlarida ikkinchi insonning xabariga 'Reply' qilish orqali amalga oshiriladi.")
+        return
+    if not msg.reply_to_message:
         await msg.reply_text("🤝 /bro ishlatish uchun birodaringizning xabariga Reply qiling.")
         return
     requester = msg.from_user
@@ -133,8 +147,10 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text(f"🤝 *{requester.full_name}* va *{target.full_name}* birodar (Bro) bo'ldilar!", parse_mode="Markdown")
 
 async def dbro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    user = msg.from_user
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
     db = await get_db()
     async with db.execute("SELECT other_id FROM social_links WHERE user_id = ? AND kind = 'bro'", (user.id,)) as cursor:
         row = await cursor.fetchone()
@@ -179,8 +195,14 @@ async def mybro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text(f"🤝 Sizning birodaringiz: <b>{html.escape(name)}</b>", parse_mode="HTML")
 
 async def givegul_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg or not msg.reply_to_message:
+    msg = update.message or update.effective_message
+    chat = update.effective_chat
+    if not msg:
+        return
+    if chat and chat.type == "private":
+        await msg.reply_text("ℹ️ Gul sovg'a qilish faqat Telegram guruhlarida ikkinchi insonning xabariga 'Reply' qilish orqali amalga oshiriladi.")
+        return
+    if not msg.reply_to_message:
         await msg.reply_text("🌹 Gul sovg'a qilish uchun kerakli odam xabariga Reply qiling.")
         return
     sender = msg.from_user
@@ -189,7 +211,7 @@ async def givegul_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("❌ Sizda gul (Rose) yo'q. Avval /shop dan xarid qiling.")
         return
     await add_item(target.id, "rose", 1)
-    await msg.reply_text(f"🌹 *{sender.full_name}* *{target.full_name}*ga gul sovg'a qildi!", parse_mode="Markdown")
+    await msg.reply_text(f"🌹 <b>{html.escape(sender.full_name)}</b> <b>{html.escape(target.full_name)}</b>ga gul sovg'a qildi!", parse_mode="HTML")
 
 async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -278,45 +300,71 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def coin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /coin <miqdor> - Reply qilingan foydalanuvchiga Coin o'tkazadi.
+    /coin <user_id> <miqdor> - Berilgan ID ga ega foydalanuvchiga Coin o'tkazadi.
     """
-    msg = update.message
+    msg = update.message or update.effective_message
     if not msg:
         return
     sender = msg.from_user
+    if not sender:
+        return
 
-    if not msg.reply_to_message or not context.args:
+    target_user_id = None
+    target_name = None
+    amount = 0
+
+    if msg.reply_to_message and context.args:
+        try:
+            amount = int(context.args[0])
+            if amount <= 0:
+                raise ValueError()
+        except Exception:
+            await msg.reply_text("❌ Miqdor musbat butun son bo'lishi kerak.")
+            return
+        target = msg.reply_to_message.from_user
+        if not target or target.id == sender.id or target.is_bot:
+            await msg.reply_text("❌ O'zingizga yoki botga tanga o'tkaza olmaysiz.")
+            return
+        await ensure_user(target)
+        target_user_id = target.id
+        target_name = target.full_name or target.first_name
+    elif context.args and len(context.args) >= 2:
+        try:
+            target_user_id = int(context.args[0])
+            amount = int(context.args[1])
+            if amount <= 0 or target_user_id <= 0:
+                raise ValueError()
+        except Exception:
+            await msg.reply_text("❌ Foydalanish: <code>/coin &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> yoki Reply qilib <code>/coin &lt;miqdor&gt;</code>", parse_mode="HTML")
+            return
+        if target_user_id == sender.id:
+            await msg.reply_text("❌ O'zingizga tanga o'tkaza olmaysiz.")
+            return
+        target_user = await get_user(target_user_id)
+        if not target_user:
+            await msg.reply_text(f"❌ <code>{target_user_id}</code> ID li foydalanuvchi bot tizimidan topilmadi.", parse_mode="HTML")
+            return
+        target_name = target_user.get("name", f"ID: {target_user_id}")
+    else:
         await msg.reply_text(
-            "🪙 <b>Tangalar o'tkazish uchun:</b>\n"
-            "Kerakli inson xabariga Reply qilib <code>/coin &lt;miqdor&gt;</code> deb yozing.\n"
-            "Masalan: <code>/coin 500</code>",
+            "🪙 <b>Tangalar o'tkazish uchun:</b>\n\n"
+            "1. Guruhda: Kerakli inson xabariga Reply qilib <code>/coin &lt;miqdor&gt;</code> deb yozing.\n"
+            "2. Shaxsiy chatda: <code>/coin &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> deb yozing.\n\n"
+            "Masalan: <code>/coin 123456789 500</code>",
             parse_mode="HTML"
         )
         return
 
-    try:
-        amount = int(context.args[0])
-        if amount <= 0:
-            raise ValueError()
-    except Exception:
-        await msg.reply_text("❌ Miqdor musbat butun son bo'lishi kerak.")
-        return
-
-    target = msg.reply_to_message.from_user
-    if not target or target.id == sender.id or target.is_bot:
-        await msg.reply_text("❌ O'zingizga yoki botga tanga o'tkaza olmaysiz.")
-        return
-
     await ensure_user(sender)
-    await ensure_user(target)
 
     if not is_admin(sender.id, sender.username):
-        if not await change_balance(sender.id, "coin", -amount, f"O'tkazma: {target.id}"):
+        if not await change_balance(sender.id, "coin", -amount, f"O'tkazma: {target_user_id}"):
             await msg.reply_text("❌ Balansingizda yetarli Coin yo'q.")
             return
 
-    await change_balance(target.id, "coin", amount, f"O'tkazma: {sender.id} dan")
+    await change_balance(target_user_id, "coin", amount, f"O'tkazma: {sender.id} dan")
     s_name = html.escape(sender.full_name or sender.first_name)
-    t_name = html.escape(target.full_name or target.first_name)
+    t_name = html.escape(target_name or str(target_user_id))
     await msg.reply_text(
         f"🪙 <b>{s_name}</b> foydalanuvchi <b>{t_name}</b>ga <b>{amount:,} Coin</b> o'tkazdi!",
         parse_mode="HTML"
@@ -326,45 +374,71 @@ async def coin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def gold_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /gold <miqdor> - Reply qilingan foydalanuvchiga Gold o'tkazadi.
+    /gold <user_id> <miqdor> - Berilgan ID ga ega foydalanuvchiga Gold o'tkazadi.
     """
-    msg = update.message
+    msg = update.message or update.effective_message
     if not msg:
         return
     sender = msg.from_user
+    if not sender:
+        return
 
-    if not msg.reply_to_message or not context.args:
+    target_user_id = None
+    target_name = None
+    amount = 0
+
+    if msg.reply_to_message and context.args:
+        try:
+            amount = int(context.args[0])
+            if amount <= 0:
+                raise ValueError()
+        except Exception:
+            await msg.reply_text("❌ Miqdor musbat butun son bo'lishi kerak.")
+            return
+        target = msg.reply_to_message.from_user
+        if not target or target.id == sender.id or target.is_bot:
+            await msg.reply_text("❌ O'zingizga yoki botga oltin o'tkaza olmaysiz.")
+            return
+        await ensure_user(target)
+        target_user_id = target.id
+        target_name = target.full_name or target.first_name
+    elif context.args and len(context.args) >= 2:
+        try:
+            target_user_id = int(context.args[0])
+            amount = int(context.args[1])
+            if amount <= 0 or target_user_id <= 0:
+                raise ValueError()
+        except Exception:
+            await msg.reply_text("❌ Foydalanish: <code>/gold &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> yoki Reply qilib <code>/gold &lt;miqdor&gt;</code>", parse_mode="HTML")
+            return
+        if target_user_id == sender.id:
+            await msg.reply_text("❌ O'zingizga oltin o'tkaza olmaysiz.")
+            return
+        target_user = await get_user(target_user_id)
+        if not target_user:
+            await msg.reply_text(f"❌ <code>{target_user_id}</code> ID li foydalanuvchi bot tizimidan topilmadi.", parse_mode="HTML")
+            return
+        target_name = target_user.get("name", f"ID: {target_user_id}")
+    else:
         await msg.reply_text(
-            "🥇 <b>Oltin o'tkazish uchun:</b>\n"
-            "Kerakli inson xabariga Reply qilib <code>/gold &lt;miqdor&gt;</code> deb yozing.\n"
-            "Masalan: <code>/gold 5</code>",
+            "🥇 <b>Oltin o'tkazish uchun:</b>\n\n"
+            "1. Guruhda: Kerakli inson xabariga Reply qilib <code>/gold &lt;miqdor&gt;</code> deb yozing.\n"
+            "2. Shaxsiy chatda: <code>/gold &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> deb yozing.\n\n"
+            "Masalan: <code>/gold 123456789 5</code>",
             parse_mode="HTML"
         )
         return
 
-    try:
-        amount = int(context.args[0])
-        if amount <= 0:
-            raise ValueError()
-    except Exception:
-        await msg.reply_text("❌ Miqdor musbat butun son bo'lishi kerak.")
-        return
-
-    target = msg.reply_to_message.from_user
-    if not target or target.id == sender.id or target.is_bot:
-        await msg.reply_text("❌ O'zingizga yoki botga oltin o'tkaza olmaysiz.")
-        return
-
     await ensure_user(sender)
-    await ensure_user(target)
 
     if not is_admin(sender.id, sender.username):
-        if not await change_balance(sender.id, "gold", -amount, f"Gold o'tkazma: {target.id}"):
+        if not await change_balance(sender.id, "gold", -amount, f"Gold o'tkazma: {target_user_id}"):
             await msg.reply_text("❌ Balansingizda yetarli Gold yo'q.")
             return
 
-    await change_balance(target.id, "gold", amount, f"Gold o'tkazma: {sender.id} dan")
+    await change_balance(target_user_id, "gold", amount, f"Gold o'tkazma: {sender.id} dan")
     s_name = html.escape(sender.full_name or sender.first_name)
-    t_name = html.escape(target.full_name or target.first_name)
+    t_name = html.escape(target_name or str(target_user_id))
     await msg.reply_text(
         f"🥇 <b>{s_name}</b> foydalanuvchi <b>{t_name}</b>ga <b>{amount:,} Gold</b> o'tkazdi!",
         parse_mode="HTML"

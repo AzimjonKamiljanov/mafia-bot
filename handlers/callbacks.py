@@ -145,18 +145,46 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 2. Main Menu Navigation
+    if data in ("guide_roles", "menu_guide"):
+        await q.answer()
+        context.args = None
+        await guide_cmd(update, context)
+        return
+
     if data.startswith("menu_"):
         await q.answer()
         if data == "menu_main":
-            await q.edit_message_text(
-                "🏙️ *DETEKTIV MAFIA* bosh menyusi:\nKerakli bo'limni tanlang:",
-                reply_markup=main_menu_keyboard(),
-                parse_mode="Markdown"
-            )
+            adm = is_admin(uid, getattr(user, "username", ""))
+            try:
+                await q.edit_message_text(
+                    "🏙️ <b>DETEKTIV MAFIA</b> bosh menyusi:\nKerakli bo'limni tanlang:",
+                    reply_markup=main_menu_keyboard(adm),
+                    parse_mode="HTML"
+                )
+            except Exception:
+                await q.message.reply_text(
+                    "🏙️ <b>DETEKTIV MAFIA</b> bosh menyusi:\nKerakli bo'limni tanlang:",
+                    reply_markup=main_menu_keyboard(adm),
+                    parse_mode="HTML"
+                )
         elif data == "menu_game":
-            await q.message.reply_text("🎮 Guruhda o'yin ochish uchun guruhga /game buyrug'ini yuboring!")
+            from config import BOT_USERNAME
+            add_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await q.message.reply_text(
+                "🎮 <b>Mafia O'yini</b>\n\n"
+                "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+                "O'yin boshlash uchun botni guruhingizga qo'shing va guruhda <b>/game</b> buyrug'ini yuboring!",
+                reply_markup=add_kb,
+                parse_mode="HTML"
+            )
         elif data == "menu_shop":
-            await q.edit_message_text("🛒 Do'kon:", reply_markup=shop_main_keyboard())
+            try:
+                await q.edit_message_text("🛒 Do'kon:", reply_markup=shop_main_keyboard())
+            except Exception:
+                await q.message.reply_text("🛒 Do'kon:", reply_markup=shop_main_keyboard())
         elif data == "menu_balance":
             await balance_cmd(update, context)
         elif data == "menu_rating":
@@ -165,8 +193,6 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await profile_cmd(update, context)
         elif data == "menu_will":
             await will_cmd(update, context)
-        elif data == "menu_guide":
-            await guide_cmd(update, context)
         elif data == "menu_clan":
             from handlers.clans import clan_cmd
             await clan_cmd(update, context)

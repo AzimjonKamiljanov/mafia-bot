@@ -15,12 +15,12 @@ from core.engine import (
 )
 from phases.lobby import create_lobby, lobby_text, lobby_keyboard
 from core.will import save_player_will, format_will_announcement
-from core.visuals import anim_emoji, format_badge_with_anim_emoji
+from core.visuals import anim_emoji, format_badge_with_anim_emoji, strip_anim_emoji_tags
 
 log = logging.getLogger("detektiv.handlers.commands")
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
+def main_menu_keyboard(is_admin_user: bool = False) -> InlineKeyboardMarkup:
+    rows = [
         [
             InlineKeyboardButton("🎮 O'yin ochish", callback_data="menu_game"),
             InlineKeyboardButton("🛒 Do'kon (Shop)", callback_data="menu_shop")
@@ -37,7 +37,10 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📖 Rollar qo'llanmasi", callback_data="menu_guide"),
             InlineKeyboardButton("🛡️ Sindikat / Klan", callback_data="menu_clan")
         ]
-    ])
+    ]
+    if is_admin_user:
+        rows.append([InlineKeyboardButton("👑 Master Admin Paneli", callback_data="adm:menu")])
+    return InlineKeyboardMarkup(rows)
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -258,13 +261,13 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from handlers.shop import shop_cmd
             await shop_cmd(update, context)
             return
-        elif arg == "guide":
+        elif arg in ("guide", "rules", "help"):
             await guide_cmd(update, context)
             return
-        elif arg == "rating":
+        elif arg in ("rating", "top"):
             await rating_cmd(update, context)
             return
-        elif arg == "clan":
+        elif arg in ("clan", "clans"):
             from handlers.clans import clan_cmd
             await clan_cmd(update, context)
             return
@@ -290,6 +293,13 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from handlers.social import mybro_cmd
             await mybro_cmd(update, context)
             return
+        elif arg == "settings":
+            from handlers.settings import settings_cmd
+            await settings_cmd(update, context)
+            return
+        elif arg in ("salom", "hello"):
+            await salom_cmd(update, context)
+            return
 
     welcome_text = (
         f"{anim_emoji('detective', '🎭')} <b>Detektiv Mafia Botiga Xush Kelibsiz!</b>\n\n"
@@ -303,8 +313,11 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Quyidagi menyu orqali kerakli bo'limni tanlang:"
     )
 
+    adm = is_admin(user.id, getattr(user, "username", ""))
+    msg = update.message or update.effective_message
     if chat.type == "private":
-        await update.message.reply_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
+        if msg:
+            await msg.reply_text(welcome_text, reply_markup=main_menu_keyboard(adm), parse_mode="HTML")
     else:
         if chat.id in lobbies and lobbies[chat.id].get("open"):
             await startgame_cmd(update, context)
@@ -377,6 +390,12 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     scroll = anim_emoji("scroll", "📜")
+    will_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("👤 Profil", callback_data="menu_profile"),
+            InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
+        ]
+    ])
     if not context.args:
         current_will = await get_will(user.id)
         if current_will:
@@ -384,6 +403,7 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{scroll} <b>Sizning amaldagi Vasiyatnomangiz:</b>\n\n"
                 f"<blockquote>{html.escape(current_will)}</blockquote>\n\n"
                 f"Yangi vasiyat yozish uchun: <code>/will &lt;matn&gt;</code>",
+                reply_markup=will_kb,
                 parse_mode="HTML"
             )
         else:
@@ -391,6 +411,7 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{scroll} <b>Sizda hali Vasiyatnoma yo'q!</b>\n\n"
                 "Tunda yoki kunduzi o'ldirilganingizda butun shaharga sirli ma'lumot qoldirish uchun:\n"
                 "<code>/will Mening vasiyatim shu...</code> buyrug'idan foydalaning.",
+                reply_markup=will_kb,
                 parse_mode="HTML"
             )
         return
@@ -400,6 +421,7 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text(
         "✅ <b>Vasiyatnomangiz muvaffaqiyatli saqlandi!</b>\n"
         "Agar o'yinda halok bo'lsangiz, ushbu xabar shahar ahlisiga e'lon qilinadi.",
+        reply_markup=will_kb,
         parse_mode="HTML"
     )
 
@@ -427,19 +449,29 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     badge_raw = await get_badge(user.id) or "Yo'q"
-    badge_display = format_badge_with_anim_emoji(badge_raw) if badge_raw and badge_raw != "Yo'q" else "Yo'q"
+    badge_display = strip_anim_emoji_tags(format_badge_with_anim_emoji(badge_raw)) if badge_raw and badge_raw != "Yo'q" else "Yo'q"
     admin_tag = " (Admin)" if is_admin(user.id, getattr(user, "username", "")) else ""
 
     text = (
-        f"<tg-emoji emoji-id=\"5463134628678688463\">👤</tg-emoji> <b>Profil:</b> <b>{html.escape(u['name'])}</b>{admin_tag}\n\n"
-        f"<tg-emoji emoji-id=\"5429462837318049280\">🪙</tg-emoji> Tangalar: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['coin']}</b>\n"
-        f"<tg-emoji emoji-id=\"5429462837318049280\">🥇</tg-emoji> Oltin: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['gold']}</b>\n"
+        f"👤 <b>Profil:</b> <b>{html.escape(u['name'])}</b>{admin_tag}\n\n"
+        f"🪙 Tangalar: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['coin']}</b>\n"
+        f"🥇 Oltin: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['gold']}</b>\n"
         f"🎮 Jami o'yinlar: <b>{u['games']}</b>\n"
-        f"<tg-emoji emoji-id=\"5368324170671202286\">🏆</tg-emoji> G'alabalar: <b>{u['wins']}</b>\n"
+        f"🏆 G'alabalar: <b>{u['wins']}</b>\n"
         f"❌ Mag'lubiyatlar: <b>{u['losses']}</b>\n"
-        f"<tg-emoji emoji-id=\"5370845348392576392\">🎖️</tg-emoji> Faol belgi: <b>{badge_display}</b>"
+        f"🎖️ Faol belgi: <b>{badge_display}</b>"
     )
-    await msg.reply_text(text, parse_mode="HTML")
+    profile_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("💰 Balans", callback_data="menu_balance"),
+            InlineKeyboardButton("🛒 Do'kon", callback_data="menu_shop")
+        ],
+        [
+            InlineKeyboardButton("📜 Vasiyatnoma", callback_data="menu_will"),
+            InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
+        ]
+    ])
+    await msg.reply_text(text, reply_markup=profile_kb, parse_mode="HTML")
 
 async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -466,10 +498,20 @@ async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     coins = "Cheksiz ∞" if is_admin(user.id, getattr(user, "username", "")) else str(u['coin'])
     gold = "Cheksiz ∞" if is_admin(user.id, getattr(user, "username", "")) else str(u['gold'])
+    balance_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🛒 Do'kon (Shop)", callback_data="shop_main"),
+            InlineKeyboardButton("👤 Profil", callback_data="menu_profile")
+        ],
+        [
+            InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
+        ]
+    ])
     await msg.reply_text(
-        f"<tg-emoji emoji-id=\"5429462837318049280\">💰</tg-emoji> <b>Sizning balansingiz:</b>\n\n"
-        f"<tg-emoji emoji-id=\"5429462837318049280\">🪙</tg-emoji> Tangalar: <b>{coins} Coin</b>\n"
-        f"<tg-emoji emoji-id=\"5429462837318049280\">🥇</tg-emoji> Oltinlar: <b>{gold} Gold</b>",
+        f"💰 <b>Sizning balansingiz:</b>\n\n"
+        f"🪙 Tangalar: <b>{coins} Coin</b>\n"
+        f"🥇 Oltinlar: <b>{gold} Gold</b>",
+        reply_markup=balance_kb,
         parse_mode="HTML"
     )
 
@@ -503,7 +545,13 @@ async def rating_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, p in enumerate(top, 1):
         medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
         lines.append(f"{medal} <b>{html.escape(p['name'])}</b> — {p['wins']} g'alaba ({p['coin']} 🪙)")
-    await msg.reply_text("\n".join(lines), parse_mode="HTML")
+    rating_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("👤 Profil", callback_data="menu_profile"),
+            InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
+        ]
+    ])
+    await msg.reply_text("\n".join(lines), reply_markup=rating_kb, parse_mode="HTML")
 
 async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -529,6 +577,12 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     from roles.dossier import format_role_dossier, ROLE_DOSSIERS
+    guide_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("👤 Profil", callback_data="menu_profile"),
+            InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
+        ]
+    ])
     if context.args and len(context.args) > 0:
         query = " ".join(context.args).strip().lower()
         matched = None
@@ -538,10 +592,12 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 break
         if matched:
             card = format_role_dossier(matched)
-            await msg.reply_text(card, parse_mode="Markdown")
+            await msg.reply_text(card, reply_markup=guide_kb, parse_mode="Markdown")
             return
         else:
-            await msg.reply_text(f"❌ *{query}* nomli rol topilmadi. Ro'yxatdan birini tanlang.", parse_mode="Markdown")
+            safe_query = html.escape(query)
+            await msg.reply_text(f"❌ <b>{safe_query}</b> nomli rol topilmadi. Ro'yxatdan birini tanlang.", reply_markup=guide_kb, parse_mode="HTML")
+            return
 
     text = (
         "📖 *Mukammal Rollar Yo'riqnomasi (24+ Rollar)*\n\n"
@@ -577,24 +633,28 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💡 *Har bir rolning to'liq taktik yo'riqnomasi uchun:* `/guide <rol>`\n"
         "_Masalan:_ `/guide Detektiv` yoki `/guide Joker`"
     )
-    await msg.reply_text(text, parse_mode="Markdown")
+    await msg.reply_text(text, reply_markup=guide_kb, parse_mode="Markdown")
 
 async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    if not chat or chat.type not in ("group", "supergroup"):
+    msg = update.message or update.effective_message
+    if not chat or not msg:
+        return
+    if chat.type not in ("group", "supergroup"):
+        await msg.reply_text("❌ Ushbu buyruq faqat Telegram guruhlarida ishlaydi.")
         return
 
     chat_id = chat.id
     if chat_id not in games and chat_id not in lobbies:
-        await update.message.reply_text("ℹ️ Hozirda ushbu guruhda faol o'yin yoki lobby yo'q.")
+        await msg.reply_text("ℹ️ Hozirda ushbu guruhda faol o'yin yoki lobby yo'q.")
         return
 
     # Check admin privileges
     if not is_admin(user.id):
         member = await context.bot.get_chat_member(chat_id, user.id)
         if member.status not in ("administrator", "creator"):
-            await update.message.reply_text("❌ Faqat guruh admini o'yinni to'xtata oladi.")
+            await msg.reply_text("❌ Faqat guruh admini o'yinni to'xtata oladi.")
             return
 
     lobby = lobbies.pop(chat_id, None)
@@ -609,7 +669,7 @@ async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game = games.pop(chat_id, None)
     if game:
         cancel_game_timer(game)
-    await update.message.reply_text("🛑 O'yin yoki lobby ma'mur tomonidan to'xtatildi.")
+    await msg.reply_text("🛑 O'yin yoki lobby ma'mur tomonidan to'xtatildi.")
 
 async def reveal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -651,7 +711,11 @@ async def reveal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    if not chat:
+    msg = update.message or update.effective_message
+    if not chat or not msg or not user:
+        return
+    if chat.type not in ("group", "supergroup"):
+        await msg.reply_text("ℹ️ Lobbyni tark etish (/chiqish) faqat Telegram guruhlarida o'yin ochilganda ishlaydi.")
         return
     lobby = lobbies.get(chat.id)
     if lobby and lobby.get("open"):
@@ -659,7 +723,7 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lobby["players"].remove(user.id)
             lobby["names"].pop(user.id, None)
             lobby["badges"].pop(user.id, None)
-            await update.message.reply_text(f"🚪 *{user.full_name}* lobbyni tark etdi.", parse_mode="Markdown")
+            await msg.reply_text(f"🚪 *{user.full_name}* lobbyni tark etdi.", parse_mode="Markdown")
             try:
                 await context.bot.edit_message_text(
                     chat_id=chat.id,
@@ -671,13 +735,14 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
             return
-    await update.message.reply_text("ℹ️ Siz hech qanday faol lobbida emassiz.")
+    await msg.reply_text("ℹ️ Siz hech qanday faol lobbida emassiz.")
 
 async def salom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Foydalanuvchiga 'Assalomu alaykum' deb uni metka (mention) qilib javob beradi."""
     user = update.effective_user
     chat = update.effective_chat
-    if not user:
+    msg = update.message or update.effective_message
+    if not user or not msg:
         return
 
     await ensure_user(user)
@@ -697,12 +762,15 @@ async def salom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• <code>/settings</code> — Guruh sozlamalari (vaqt va rollar)"
     )
 
-    if update.message:
-        await update.message.reply_text(
-            text,
-            parse_mode="HTML",
-            reply_to_message_id=update.message.message_id
-        )
+    adm = is_admin(user.id, getattr(user, "username", ""))
+    kb = main_menu_keyboard(adm) if chat and chat.type == "private" else None
+    reply_to = update.message.message_id if update.message else None
+    await msg.reply_text(
+        text,
+        reply_markup=kb,
+        parse_mode="HTML",
+        reply_to_message_id=reply_to
+    )
 
 async def call_players_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat

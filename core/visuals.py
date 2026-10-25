@@ -118,11 +118,13 @@ def format_player_title_html(game_or_lobby: dict, uid: int) -> str:
     return raw_name
 
 def strip_anim_emoji_tags(text: str) -> str:
-    """Strip <tg-emoji> tags leaving only fallback characters for plain/Markdown text."""
+    """Strip <tg-emoji> tags leaving only fallback characters for plain/Markdown/safe HTML text."""
     if not text or "<tg-emoji" not in text:
         return text
     # Replace <tg-emoji emoji-id="...">FALLBACK</tg-emoji> with FALLBACK
-    return re.sub(r'<tg-emoji[^>]*>(.*?)</tg-emoji>', r'\1', text)
+    cleaned = re.sub(r'<tg-emoji[^>]*>(.*?)</tg-emoji>', r'\1', text, flags=re.DOTALL)
+    # Strip any dangling or self-closing tg-emoji tags
+    return re.sub(r'</?tg-emoji[^>]*>', '', cleaned)
 
 async def send_animated_dice_effect(bot: Bot, chat_id: int, emoji: str = "🎯"):
     """
