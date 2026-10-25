@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+ENV/
+
+# Testing & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & temp
+*.log
+bot_runtime.log
+.DS_Store
+
+# SQLite WAL and SHM
+detektiv.db-shm
+detektiv.db-wal
