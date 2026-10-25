@@ -69,44 +69,94 @@ def lobby_keyboard(chat_id: int, include_bot_link: bool = False) -> InlineKeyboa
     return InlineKeyboardMarkup(rows)
 
 async def call_players_in_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int, caller_name: str = ""):
-    members = await get_group_members(chat_id, limit=35)
+    """Mention all known members of the group and invite them to play."""
+    # 1. Dynamically sync all chat administrators into group_users
+    try:
+        admins = await context.bot.get_chat_administrators(chat_id)
+        for adm in admins:
+            if adm.user and not adm.user.is_bot:
+                await track_group_member(chat_id, adm.user)
+    except Exception as e:
+        log.debug("Could not fetch chat admins in call_players_in_chat: %s", e)
+
+    # 2. Get all tracked group members
+    members = await get_group_members(chat_id, limit=150)
     lobby = lobbies.get(chat_id)
     joined = set(lobby.get("players", [])) if lobby else set()
     bot_id = context.bot.id
 
+    # 3. Filter candidates (not bot, not already in lobby)
     candidates = [m for m in members if m["user_id"] != bot_id and m["user_id"] not in joined]
 
-    caller_str = f"<b>{html.escape(caller_name)}</b> barchani o'yinga chorlamoqda!\n\n" if caller_name else ""
+    caller_str = f"📣 <b>{html.escape(caller_name)}</b> barchani o'yinga chorlamoqda!\n\n" if caller_name else ""
+    reply_markup = lobby_keyboard(chat_id, include_bot_link=True) if (lobby and lobby.get("open")) else None
 
     if candidates:
-        mentions = []
-        for m in candidates[:20]:
-            name = html.escape(m["name"] or "O'yinchi")
-            if m.get("username"):
-                mentions.append(f"@{m['username']}")
-            else:
-                mentions.append(f'<a href="tg://user?id={m["user_id"]}">{name}</a>')
+        def make_mention(m):
+            name = html.escape((m.get("name") or "O'yinchi")[:25])
+            uid = m["user_id"]
+            username = m.get("username")
+            if username:
+                return f'👤 <a href="tg://user?id={uid}">{name}</a> (@{username})'
+            return f'👤 <a href="tg://user?id={uid}">{name}</a>'
 
-        text = (
-            f"📢 <b>Diqqat, barcha detektivlar va fuqarolar!</b>\n\n"
+        CHUNK_SIZE = 8
+        chunks = [candidates[i:i + CHUNK_SIZE] for i in range(0, len(candidates), CHUNK_SIZE)]
+
+        action_hint = "🎮 Safimizga qo'shilish uchun yuqoridagi <b>Qo'shilish</b> tugmasini bosing!" if (lobby and lobby.get("open")) else "💡 O'yinni boshlash uchun guruhda <b>/game</b> buyrug'ini bering!"
+
+        # First batch includes full banner
+        first_mentions = "\n".join(f"• {make_mention(m)}" for m in chunks[0])
+        batch_label = f" (1/{len(chunks)})" if len(chunks) > 1 else ""
+        header_text = (
+            f"📢 <b>DIQQAT, MAFIA O'YINIGA CHORLOV!</b> 🕵️‍♂️🔥\n\n"
             f"{caller_str}"
-            f"Mafia o'yini boshlanishi uchun ishtirokchilar kerak!\n\n"
-            f"👥 Chaqirilganlar:\n{', '.join(mentions)}\n\n"
-            f"🎮 Safimizga qo'shilish uchun yuqoridagi <b>Qo'shilish</b> tugmasini bosing!"
+            f"Qotillar shahar ko'chalarida kezib yuribdi! Haqiqiy detektiv kim, ayyor mafiya kim — o'yinda aniqlaymiz! 🎭\n\n"
+            f"👥 <b>Chaqirilganlar{batch_label}:</b>\n"
+            f"{first_mentions}\n\n"
+            f"{action_hint}"
         )
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=header_text,
+            reply_markup=reply_markup,
+            parse_mode="HTML"
+        )
+
+        # Remaining batches if more than CHUNK_SIZE members
+        for idx, chunk in enumerate(chunks[1:], start=2):
+            await asyncio.sleep(0.4)
+            b_mentions = "\n".join(f"• {make_mention(m)}" for m in chunk)
+            b_text = (
+                f"👥 <b>Chaqirilganlar ({idx}/{len(chunks)}):</b>\n"
+                f"{b_mentions}"
+            )
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=b_text,
+                parse_mode="HTML"
+            )
     else:
-        text = (
-            f"📢 <b>Diqqat, barcha guruh a'zolari!</b>\n\n"
-            f"{caller_str}"
-            f"Yangi Mafia o'yini boshlanmoqda! Haqiqiy detektiv kim, ayyor qotil kim — sinab ko'ring!\n\n"
-            f"🎮 O'yinga qo'shilish uchun yuqoridagi <b>Qo'shilish</b> tugmasini bosing!"
+        if lobby and lobby.get("open") and lobby.get("players"):
+            text = (
+                f"📢 <b>DIQQAT!</b>\n\n"
+                f"{caller_str}"
+                f"🎉 Barcha ma'lum o'yinchilar allaqachon lobbiyda!\n"
+                f"O'yinni boshlash uchun <b>/startgame</b> buyrug'ini bering."
+            )
+        else:
+            text = (
+                f"📢 <b>Diqqat, barcha shahar ahli!</b>\n\n"
+                f"{caller_str}"
+                f"Yangi Mafia o'yini boshlanmoqda! Haqiqiy detektiv kim, ayyor qotil kim — sinab ko'ring!\n\n"
+                f"🎮 O'yin ochish uchun <b>/game</b> buyrug'ini yuboring!"
+            )
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode="HTML"
         )
-
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        parse_mode="HTML"
-    )
 
 async def create_lobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat

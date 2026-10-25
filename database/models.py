@@ -417,7 +417,7 @@ async def track_group_member(chat_id: int, user) -> None:
     except Exception as e:
         log.warning("Could not track group member: %s", e)
 
-async def get_group_members(chat_id: int, limit: int = 30) -> List[Dict[str, Any]]:
+async def get_group_members(chat_id: int, limit: int = 150) -> List[Dict[str, Any]]:
     """Retrieve known members of this group."""
     db = await get_db()
     try:

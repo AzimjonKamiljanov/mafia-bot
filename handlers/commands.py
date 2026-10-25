@@ -1,3 +1,4 @@
+import html
 import logging
 from typing import Optional
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
@@ -6,7 +7,7 @@ from telegram.ext import ContextTypes
 from config import ADMIN_ID, ROLES
 from database.models import (
     ensure_user, get_user, get_balance, change_balance, get_badge,
-    get_top_players, is_admin, get_will, set_will
+    get_top_players, is_admin, get_will, set_will, track_group_member
 )
 from core.engine import (
     games, lobbies, find_game_by_user, find_lobby_by_user, display_name,
@@ -537,6 +538,38 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     await update.message.reply_text("ℹ️ Siz hech qanday faol lobbida emassiz.")
 
+async def salom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Foydalanuvchiga 'Assalomu alaykum' deb uni metka (mention) qilib javob beradi."""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user:
+        return
+
+    await ensure_user(user)
+    if chat and chat.type in ("group", "supergroup"):
+        await track_group_member(chat.id, user)
+
+    name = (user.full_name or user.first_name or "Do'stim")[:40]
+    mention = f'<a href="tg://user?id={user.id}">{html.escape(name)}</a>'
+    username_tag = f" (@{user.username})" if user.username else ""
+
+    text = (
+        f"👋 <b>Assalomu alaykum, {mention}{username_tag}!</b> 🕵️‍♂️✨\n\n"
+        f"Detektiv Mafia olamiga xush kelibsiz! Shahar ko'chalarida adolat o'rnatishga tayyormisiz? 🎭\n\n"
+        f"🎮 <b>Asosiy buyruqlar:</b>\n"
+        f"• <code>/game</code> — Guruhda yangi Mafia o'yinini ochish\n"
+        f"• <code>/call</code> — Barcha o'yinchilarni o'yinga chaqirish\n"
+        f"• <code>/profile</code> — O'z darajangiz va statusingiz\n"
+        f"• <code>/settings</code> — Guruh sozlamalari (vaqt va rollar)"
+    )
+
+    if update.message:
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML",
+            reply_to_message_id=update.message.message_id
+        )
+
 async def call_players_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
@@ -544,6 +577,10 @@ async def call_players_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message:
             await update.message.reply_text("❌ Ushbu buyruq faqat Telegram guruhlarida ishlaydi.")
         return
+
+    if user:
+        await ensure_user(user)
+        await track_group_member(chat.id, user)
 
     caller_name = (user.full_name or user.first_name)[:40] if user else ""
     from phases.lobby import call_players_in_chat

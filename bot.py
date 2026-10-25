@@ -2,14 +2,14 @@ import logging
 import asyncio
 from telegram import Update, BotCommand
 from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+    Application, CommandHandler, CallbackQueryHandler, MessageHandler, ChatMemberHandler, filters, ContextTypes
 )
 
 from config import BOT_TOKEN
 from database.db import init_db, close_db
 from database.models import ensure_user, track_group_member
 from handlers import (
-    start_cmd, startgame_cmd, will_cmd, profile_cmd, balance_cmd, rating_cmd, guide_cmd,
+    start_cmd, salom_cmd, startgame_cmd, will_cmd, profile_cmd, balance_cmd, rating_cmd, guide_cmd,
     stop_cmd, chiqish_cmd, reveal_cmd, shop_cmd, clan_cmd, newclan_cmd,
     para_cmd, dpara_cmd, mypara_cmd, bro_cmd, dbro_cmd, mybro_cmd,
     givegul_cmd, send_cmd, coin_cmd, gold_cmd, givecoin_cmd, givegold_cmd,
@@ -41,6 +41,35 @@ async def track_group_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         record_player_activity(game, user.id)
         except Exception:
             pass
+
+    # Track newly added or joined members via message service update
+    if update.message and update.message.new_chat_members and chat and chat.type in ("group", "supergroup"):
+        for new_user in update.message.new_chat_members:
+            if not new_user.is_bot:
+                try:
+                    await ensure_user(new_user)
+                    await track_group_member(chat.id, new_user)
+                    log.info("New group member tracked via new_chat_members in %s: %s (%s)", chat.id, new_user.full_name, new_user.id)
+                except Exception as e:
+                    log.debug("Error tracking new chat member: %s", e)
+
+async def track_chat_member_updated(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Track when users join, are added, or change status in a group."""
+    result = update.chat_member
+    if not result:
+        return
+    chat = result.chat
+    if not chat or chat.type not in ("group", "supergroup"):
+        return
+    new_member = result.new_chat_member
+    if new_member and new_member.user and not new_member.user.is_bot:
+        if new_member.status in ("member", "administrator", "creator", "restricted"):
+            try:
+                await ensure_user(new_member.user)
+                await track_group_member(chat.id, new_member.user)
+                log.info("New group member tracked via ChatMemberHandler in %s: %s (%s)", chat.id, new_member.user.full_name, new_member.user.id)
+            except Exception as e:
+                log.debug("Error in track_chat_member_updated: %s", e)
 
 async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle text messages sent to bot in private chat (e.g. Dying Words / Last Words)."""
@@ -84,6 +113,7 @@ async def post_init(app: Application):
     try:
         await app.bot.set_my_commands([
             BotCommand("start", "Botni ishga tushirish"),
+            BotCommand("salom", "Salomlashish va profil havolasi"),
             BotCommand("game", "Guruhda Mafia o'yinini ochish"),
             BotCommand("call", "O'yinchilarni chaqirish"),
             BotCommand("will", "So'nggi Vasiyatnoma yozish"),
@@ -126,6 +156,7 @@ def create_bot_app() -> Application:
 
     # Core commands
     app.add_handler(CommandHandler("start", start_cmd))
+    app.add_handler(CommandHandler(["salom", "assalom", "assalomualaykum", "salomlar", "hello", "hi"], salom_cmd))
     app.add_handler(CommandHandler(["startgame", "boshlash", "start_game", "play", "go"], startgame_cmd))
     app.add_handler(CommandHandler(["game", "oyun", "oyin"], create_lobby))
     app.add_handler(CommandHandler(["settings", "sozlama", "sozlamalar"], settings_cmd))
@@ -170,6 +201,9 @@ def create_bot_app() -> Application:
         MessageHandler(filters.ChatType.GROUPS & filters.ALL, track_group_user),
         group=1
     )
+
+    # Chat member status update tracker (joins, leaves, invite link admissions)
+    app.add_handler(ChatMemberHandler(track_chat_member_updated, ChatMemberHandler.CHAT_MEMBER))
 
     return app
 
