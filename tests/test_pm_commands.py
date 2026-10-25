@@ -323,3 +323,155 @@ async def test_menu_callbacks_and_deep_links():
     kb = up_cb.callback_query.edit_message_text.call_args[1]["reply_markup"]
     btn_texts = [btn.text for row in kb.inline_keyboard for btn in row]
     assert "👑 Master Admin Paneli" in btn_texts
+
+@pytest.mark.asyncio
+async def test_admin_slash_free_commands_not_hijacked_by_ai():
+    """Verify that when the super admin types 'profil', 'balans', 'dokon', etc. in PM,
+    it is NOT intercepted by AI assistant fallback."""
+    await init_db()
+    ctx = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
+    admin_id = 7651553630
+    admin_username = "rasuljonovv_a"
+
+    # 1. Admin sends 'profil'
+    up = make_pm_update(uid=admin_id, username=admin_username, text="profil")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    text = up.message.reply_text.call_args[0][0]
+    assert "Profil:" in text
+    assert "AI MASTER ASSISTENT" not in text
+
+    # 2. Admin sends 'balans'
+    up = make_pm_update(uid=admin_id, username=admin_username, text="balans")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    text = up.message.reply_text.call_args[0][0]
+    assert "balansingiz" in text
+    assert "AI MASTER ASSISTENT" not in text
+
+    # 3. Admin sends 'dokon'
+    up = make_pm_update(uid=admin_id, username=admin_username, text="dokon")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    text = up.message.reply_text.call_args[0][0]
+    assert "Do'koni" in text
+    assert "AI MASTER ASSISTENT" not in text
+
+    # 4. Admin sends natural language AI command 'tunni 45 qil'
+    up = make_pm_update(uid=admin_id, username=admin_username, text="tunni 45 qil")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    text = up.message.reply_text.call_args[0][0]
+    assert "45 soniya" in text or "AI MASTER" in text
+
+@pytest.mark.asyncio
+async def test_pm_slash_free_commands_with_args():
+    """Verify slash-free commands with arguments work in PM (args get passed to handlers)."""
+    await init_db()
+    ctx = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
+
+    # 1. 'vasiyat Mening yangi vasiyatnomam'
+    up = make_pm_update(uid=888010, username="will_tester", text="vasiyat Mening yangi vasiyatnomam")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    assert "saqlandi" in up.message.reply_text.call_args[0][0]
+
+    # Verify saved will
+    from database.models import get_will
+    saved = await get_will(888010)
+    assert saved == "Mening yangi vasiyatnomam"
+
+    # 2. 'guide Detektiv'
+    up = make_pm_update(uid=888010, username="will_tester", text="guide Detektiv")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    assert "Detektiv" in up.message.reply_text.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_pm_username_transfer():
+    """Verify transferring coins and gold using @username works in PM."""
+    await init_db()
+    sender_up = make_pm_update(uid=888020, username="sender_alex", text="")
+    receiver_up = make_pm_update(uid=888021, username="receiver_bob", text="")
+    await ensure_user(sender_up.effective_user)
+    await ensure_user(receiver_up.effective_user)
+
+    await change_balance(888020, "coin", 2000, "seed")
+    await change_balance(888020, "gold", 20, "seed")
+
+    ctx = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
+
+    # 1. /coin @receiver_bob 400
+    ctx.args = ["@receiver_bob", "400"]
+    await coin_cmd(sender_up, ctx)
+    assert sender_up.message.reply_text.called
+    assert "400 Coin" in sender_up.message.reply_text.call_args[0][0]
+    bob = await get_user(888021)
+    assert bob["coin"] >= 400
+
+    # 2. /gold @receiver_bob 5
+    sender_up.message.reply_text.reset_mock()
+    ctx.args = ["@receiver_bob", "5"]
+    await gold_cmd(sender_up, ctx)
+    assert sender_up.message.reply_text.called
+    assert "5 Gold" in sender_up.message.reply_text.call_args[0][0]
+    bob = await get_user(888021)
+    assert bob["gold"] >= 5
+
+    # 3. Non-existent username
+    sender_up.message.reply_text.reset_mock()
+    ctx.args = ["@nonexistent_user_xyz", "50"]
+    await coin_cmd(sender_up, ctx)
+    assert sender_up.message.reply_text.called
+    assert "topilmadi" in sender_up.message.reply_text.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_pm_unrecognized_slash_command():
+    """Verify unknown slash command in PM does not fail silently, but provides a helpful fallback."""
+    await init_db()
+    ctx = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
+    up = make_pm_update(uid=888030, username="curious_player", text="/unknown_command_test")
+    await handle_private_message(up, ctx)
+    assert up.message.reply_text.called
+    text = up.message.reply_text.call_args[0][0]
+    assert "Noma'lum buyruq" in text
+    assert "/unknown_command_test" in text
+    assert "reply_markup" in up.message.reply_text.call_args[1]
+
+@pytest.mark.asyncio
+async def test_pm_settings_for_admin_default_global():
+    """Verify admin calling /settings without args in PM configures default settings (chat_id=0)."""
+    await init_db()
+    ctx = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
+    ctx.args = []
+    up = make_pm_update(uid=7651553630, username="rasuljonovv_a")
+    await settings_cmd(up, ctx)
+    assert up.message.reply_text.called
+    text = up.message.reply_text.call_args[1]["text"]
+    assert "Asosiy Standart Sozlamalar (Global)" in text
+    kb = up.message.reply_text.call_args[1]["reply_markup"]
+    btn_texts = [btn.text for row in kb.inline_keyboard for btn in row]
+    assert "👑 Master Admin Paneli" in btn_texts
+
+@pytest.mark.asyncio
+async def test_safe_ext_bot_badrequest_entity_retry():
+    """Verify SafeExtBot retries without parse_mode when BadRequest('can\\'t parse entities') occurs."""
+    from telegram.error import BadRequest
+    from telegram.ext import ExtBot
+    bot = SafeExtBot("123456:FAKE_TOKEN_FOR_TEST")
+    
+    call_count = 0
+    async def mock_super_do_post(self, endpoint, data=None, *args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise BadRequest("Can't parse entities: can't find end of tag")
+        return {"ok": True, "result": {"message_id": 123}}
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(ExtBot, "_do_post", mock_super_do_post)
+        payload = {"chat_id": 12345, "text": "<b>Unclosed bold", "parse_mode": "HTML"}
+        res = await bot._do_post("sendMessage", payload)
+        assert res["ok"] is True
+        assert call_count == 2
+

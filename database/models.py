@@ -56,6 +56,17 @@ async def get_user(uid: int) -> Optional[Dict[str, Any]]:
         row = await cursor.fetchone()
         return dict(row) if row else None
 
+async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    if not username:
+        return None
+    clean = username.lstrip("@").strip().lower()
+    if not clean:
+        return None
+    db = await get_db()
+    async with db.execute("SELECT * FROM users WHERE LOWER(username) = ?", (clean,)) as cursor:
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
 async def get_balance(uid: int, currency: str = "coin") -> int:
     if is_admin(uid):
         return 999999999

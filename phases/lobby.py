@@ -163,14 +163,20 @@ async def create_lobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
     if not chat or chat.type not in ("group", "supergroup"):
-        if update.effective_user:
-            try:
-                await context.bot.send_message(
-                    chat_id=update.effective_user.id,
-                    text="❌ Ushbu buyruq faqat Telegram guruhlarida ishlaydi."
-                )
-            except Exception:
-                pass
+        msg = update.message or update.effective_message
+        if msg:
+            from config import BOT_USERNAME
+            add_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await msg.reply_text(
+                "🎮 <b>Mafia O'yini (/game)</b>\n\n"
+                "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+                "O'yin ochish uchun botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
+                reply_markup=add_kb,
+                parse_mode="HTML"
+            )
         return
 
     chat_id = chat.id

@@ -19,7 +19,18 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg:
         return
     if chat and chat.type == "private":
-        await msg.reply_text("ℹ️ Juftlik (Para) hosil qilish faqat Telegram guruhlarida ikkinchi insonning xabariga 'Reply' qilish orqali amalga oshiriladi.")
+        from config import BOT_USERNAME
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "💍 <b>Juftlik (Para)</b>\n\n"
+            "Juftlik hosil qilish faqat <b>Telegram guruhlarida</b> ikkinchi insonning xabariga 'Reply' qilib <code>/para</code> deb yozish orqali amalga oshiriladi.\n\n"
+            "Mavjud juftingizni tekshirish uchun: <code>/mypara</code>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
         return
     if not msg.reply_to_message:
         await msg.reply_text("💍 /para ishlatish uchun kerakli insonning xabariga Reply qiling.")
@@ -111,7 +122,18 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg:
         return
     if chat and chat.type == "private":
-        await msg.reply_text("ℹ️ Birodarlik (Bro) rishtasini bog'lash faqat Telegram guruhlarida ikkinchi insonning xabariga 'Reply' qilish orqali amalga oshiriladi.")
+        from config import BOT_USERNAME
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🤝 <b>Birodarlik (Bro)</b>\n\n"
+            "Birodarlik rishtasini bog'lash faqat <b>Telegram guruhlarida</b> ikkinchi insonning xabariga 'Reply' qilib <code>/bro</code> deb yozish orqali amalga oshiriladi.\n\n"
+            "Mavjud birodaringizni tekshirish uchun: <code>/mybro</code>",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
         return
     if not msg.reply_to_message:
         await msg.reply_text("🤝 /bro ishlatish uchun birodaringizning xabariga Reply qiling.")
@@ -200,7 +222,19 @@ async def givegul_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg:
         return
     if chat and chat.type == "private":
-        await msg.reply_text("ℹ️ Gul sovg'a qilish faqat Telegram guruhlarida ikkinchi insonning xabariga 'Reply' qilish orqali amalga oshiriladi.")
+        from config import BOT_USERNAME
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("🛒 Do'kon (/shop)", callback_data="menu_shop")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🌹 <b>Gul sovg'a qilish (/givegul)</b>\n\n"
+            "Gul sovg'a qilish faqat <b>Telegram guruhlarida</b> ikkinchi insonning xabariga 'Reply' qilib <code>/givegul</code> deb yozish orqali amalga oshiriladi.\n\n"
+            "Gulingiz tugagan bo'lsa, /shop do'konidan xarid qilishingiz mumkin.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
         return
     if not msg.reply_to_message:
         await msg.reply_text("🌹 Gul sovg'a qilish uchun kerakli odam xabariga Reply qiling.")
@@ -218,14 +252,26 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /send <soni> - Guruhga Gold Drop tashlaydi!
     Har bir odam 1 donadan Gold olishi mumkin.
     """
-    msg = update.message
+    msg = update.message or update.effective_message
     if not msg:
         return
     chat = update.effective_chat
     sender = msg.from_user
 
     if not chat or chat.type not in ("group", "supergroup"):
-        await msg.reply_text("❌ Ushbu buyruq faqat guruhlarda ishlaydi.")
+        from config import BOT_USERNAME
+        send_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🪙 Balans", callback_data="menu_balance")],
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🎁 <b>Oltin Sovrin (Gold Drop) (/send)</b>\n\n"
+            "Guruhga oltin tashlash faqat <b>Telegram guruhlarida</b> ishlaydi.\n"
+            "Shaxsiy chatda foydalanuvchiga oltin o'tkazish uchun: <code>/gold &lt;user_id yoki @username&gt; &lt;miqdor&gt;</code> buyrug'idan foydalaning.",
+            reply_markup=send_kb,
+            parse_mode="HTML"
+        )
         return
 
     if not context.args:
@@ -329,28 +375,45 @@ async def coin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = target.id
         target_name = target.full_name or target.first_name
     elif context.args and len(context.args) >= 2:
+        raw_target = context.args[0].strip()
         try:
-            target_user_id = int(context.args[0])
             amount = int(context.args[1])
-            if amount <= 0 or target_user_id <= 0:
+            if amount <= 0:
                 raise ValueError()
         except Exception:
-            await msg.reply_text("❌ Foydalanish: <code>/coin &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> yoki Reply qilib <code>/coin &lt;miqdor&gt;</code>", parse_mode="HTML")
+            await msg.reply_text("❌ Miqdor musbat butun son bo'lishi kerak.")
             return
+
+        target_user = None
+        if raw_target.isdigit():
+            target_user_id = int(raw_target)
+            target_user = await get_user(target_user_id)
+        else:
+            from database.models import get_user_by_username
+            target_user = await get_user_by_username(raw_target)
+            if target_user:
+                target_user_id = target_user["user_id"]
+
+        if not target_user:
+            clean_tgt = html.escape(raw_target)
+            await msg.reply_text(f"❌ <code>{clean_tgt}</code> foydalanuvchisi bot tizimidan topilmadi.", parse_mode="HTML")
+            return
+
         if target_user_id == sender.id:
             await msg.reply_text("❌ O'zingizga tanga o'tkaza olmaysiz.")
             return
-        target_user = await get_user(target_user_id)
-        if not target_user:
-            await msg.reply_text(f"❌ <code>{target_user_id}</code> ID li foydalanuvchi bot tizimidan topilmadi.", parse_mode="HTML")
-            return
+
         target_name = target_user.get("name", f"ID: {target_user_id}")
     else:
+        coin_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🪙 Balans", callback_data="menu_balance"), InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ]) if update.effective_chat and update.effective_chat.type == "private" else None
         await msg.reply_text(
             "🪙 <b>Tangalar o'tkazish uchun:</b>\n\n"
             "1. Guruhda: Kerakli inson xabariga Reply qilib <code>/coin &lt;miqdor&gt;</code> deb yozing.\n"
-            "2. Shaxsiy chatda: <code>/coin &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> deb yozing.\n\n"
-            "Masalan: <code>/coin 123456789 500</code>",
+            "2. Shaxsiy chatda: <code>/coin &lt;foydalanuvchi_id yoki @username&gt; &lt;miqdor&gt;</code> deb yozing.\n\n"
+            "Masalan: <code>/coin 123456789 500</code> yoki <code>/coin @rasuljonovv_a 500</code>",
+            reply_markup=coin_kb,
             parse_mode="HTML"
         )
         return
@@ -374,7 +437,7 @@ async def coin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def gold_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /gold <miqdor> - Reply qilingan foydalanuvchiga Gold o'tkazadi.
-    /gold <user_id> <miqdor> - Berilgan ID ga ega foydalanuvchiga Gold o'tkazadi.
+    /gold <user_id|username> <miqdor> - Berilgan foydalanuvchiga Gold o'tkazadi.
     """
     msg = update.message or update.effective_message
     if not msg:
@@ -403,28 +466,45 @@ async def gold_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = target.id
         target_name = target.full_name or target.first_name
     elif context.args and len(context.args) >= 2:
+        raw_target = context.args[0].strip()
         try:
-            target_user_id = int(context.args[0])
             amount = int(context.args[1])
-            if amount <= 0 or target_user_id <= 0:
+            if amount <= 0:
                 raise ValueError()
         except Exception:
-            await msg.reply_text("❌ Foydalanish: <code>/gold &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> yoki Reply qilib <code>/gold &lt;miqdor&gt;</code>", parse_mode="HTML")
+            await msg.reply_text("❌ Miqdor musbat butun son bo'lishi kerak.")
             return
+
+        target_user = None
+        if raw_target.isdigit():
+            target_user_id = int(raw_target)
+            target_user = await get_user(target_user_id)
+        else:
+            from database.models import get_user_by_username
+            target_user = await get_user_by_username(raw_target)
+            if target_user:
+                target_user_id = target_user["user_id"]
+
+        if not target_user:
+            clean_tgt = html.escape(raw_target)
+            await msg.reply_text(f"❌ <code>{clean_tgt}</code> foydalanuvchisi bot tizimidan topilmadi.", parse_mode="HTML")
+            return
+
         if target_user_id == sender.id:
             await msg.reply_text("❌ O'zingizga oltin o'tkaza olmaysiz.")
             return
-        target_user = await get_user(target_user_id)
-        if not target_user:
-            await msg.reply_text(f"❌ <code>{target_user_id}</code> ID li foydalanuvchi bot tizimidan topilmadi.", parse_mode="HTML")
-            return
+
         target_name = target_user.get("name", f"ID: {target_user_id}")
     else:
+        gold_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💰 Balans", callback_data="menu_balance"), InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ]) if update.effective_chat and update.effective_chat.type == "private" else None
         await msg.reply_text(
             "🥇 <b>Oltin o'tkazish uchun:</b>\n\n"
             "1. Guruhda: Kerakli inson xabariga Reply qilib <code>/gold &lt;miqdor&gt;</code> deb yozing.\n"
-            "2. Shaxsiy chatda: <code>/gold &lt;foydalanuvchi_id&gt; &lt;miqdor&gt;</code> deb yozing.\n\n"
-            "Masalan: <code>/gold 123456789 5</code>",
+            "2. Shaxsiy chatda: <code>/gold &lt;foydalanuvchi_id yoki @username&gt; &lt;miqdor&gt;</code> deb yozing.\n\n"
+            "Masalan: <code>/gold 123456789 5</code> yoki <code>/gold @rasuljonovv_a 5</code>",
+            reply_markup=gold_kb,
             parse_mode="HTML"
         )
         return

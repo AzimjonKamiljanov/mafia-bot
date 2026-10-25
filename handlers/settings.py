@@ -16,18 +16,23 @@ log = logging.getLogger("detektiv.handlers.settings")
 ROLE_PAGESIZE = 6
 
 def build_settings_menu_keyboard(chat_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
+    rows = [
         [
             InlineKeyboardButton("⏱️ Vaqtlarni sozlash", callback_data=f"sett:times:{chat_id}"),
             InlineKeyboardButton("🎭 Rollarni boshqarish", callback_data=f"sett:roles:{chat_id}:0")
         ],
         [
             InlineKeyboardButton("🔄 Asliga qaytarish (Reset)", callback_data=f"sett:reset:{chat_id}")
-        ],
-        [
-            InlineKeyboardButton("❌ Yopish", callback_data="sett:close")
         ]
+    ]
+    if chat_id == 0:
+        rows.append([
+            InlineKeyboardButton("👑 Master Admin Paneli", callback_data="adm:menu")
+        ])
+    rows.append([
+        InlineKeyboardButton("❌ Yopish", callback_data="sett:close")
     ])
+    return InlineKeyboardMarkup(rows)
 
 def build_times_keyboard(chat_id: int, settings: Dict[str, Any]) -> InlineKeyboardMarkup:
     night = int(settings.get("night_seconds", DEFAULT_NIGHT_SECONDS))
@@ -121,15 +126,14 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_chat_id = chat.id
         title = html.escape(chat.title or "Guruh")
     else:
-        # In PM: if admin, check if target chat_id is passed as arg, otherwise show admin panel
+        # In PM: if admin, check if target chat_id is passed as arg, otherwise show global default settings (chat_id=0)
         if is_admin(user.id, user.username):
             if context.args and len(context.args) > 0 and context.args[0].lstrip("-").isdigit():
                 target_chat_id = int(context.args[0])
                 title = f"Guruh ({target_chat_id})"
             else:
-                from handlers.admin_panel import admin_cmd
-                await admin_cmd(update, context)
-                return
+                target_chat_id = 0
+                title = "Asosiy Standart Sozlamalar (Global)"
         else:
             from config import BOT_USERNAME
             pm_kb = InlineKeyboardMarkup([

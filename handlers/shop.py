@@ -184,9 +184,17 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if target_badge:
             await set_badge(uid, key, target_badge["badge_name"])
             await q.answer(f"🟢 {target_badge['badge_name']} faollashtirildi!", show_alert=True)
+            try:
+                await shop_items(update, context)
+            except Exception:
+                pass
         return
 
     if data == "item:off":
         await deactivate_badge(uid)
         await q.answer("⚪ Faol belgi olib tashlandi.", show_alert=True)
+        try:
+            await shop_items(update, context)
+        except Exception:
+            pass
         return

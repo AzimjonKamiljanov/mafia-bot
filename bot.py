@@ -75,7 +75,7 @@ async def track_chat_member_updated(update: Update, context: ContextTypes.DEFAUL
                 log.debug("Error in track_chat_member_updated: %s", e)
 
 async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle text messages sent to bot in private chat (e.g. Dying Words / Last Words)."""
+    """Handle text messages sent to bot in private chat (e.g. Dying Words / Last Words, slash-free commands, and fallbacks)."""
     if not update.message or not update.effective_user or update.effective_user.is_bot:
         return
 
@@ -103,78 +103,171 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
                     pass
             return
 
-    # 2. Check if admin sent AI natural language configuration command
+    # 2. Tokenize message text and extract command token + arguments
+    parts = text.split()
+    first_word = parts[0].strip()
+    # Strip leading slash and @botusername if present (e.g. /profil, /profil@Detektivmj_bot, profil)
+    cmd_token = first_word.lstrip("/").split("@")[0].lower()
+    args = parts[1:]
+    context.args = args
+
+    full_lower = text.lower().strip()
+
+    # 3. Handle standard commands (both slash and slash-free, with arguments preserved)
+    if full_lower in ("salom", "assalom", "assalomu alaykum", "assalomualaykum", "salomlar", "hello", "hi") or cmd_token in ("salom", "assalom", "assalomualaykum", "salomlar", "hello", "hi"):
+        await salom_cmd(update, context)
+        return
+
+    if full_lower in ("profil", "profile", "profilim", "mening profilim", "shaxsiy", "me") or cmd_token in ("profil", "profile", "profilim", "shaxsiy", "me"):
+        await profile_cmd(update, context)
+        return
+
+    if full_lower in ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "coin", "gold", "wallet") or cmd_token in ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "wallet"):
+        await balance_cmd(update, context)
+        return
+
+    if full_lower in ("dokon", "do'kon", "shop", "magazin", "bozor") or cmd_token in ("dokon", "shop", "magazin", "bozor"):
+        from handlers.shop import shop_cmd
+        await shop_cmd(update, context)
+        return
+
+    if full_lower in ("reyting", "rating", "top", "top10", "top 10", "top 15", "leaderboard") or cmd_token in ("reyting", "rating", "top", "top10", "leaderboard"):
+        await rating_cmd(update, context)
+        return
+
+    if full_lower in ("rollar", "guide", "qo'llanma", "qollanma", "yordam", "help", "qoidalar", "rules") or cmd_token in ("rollar", "guide", "qollanma", "yordam", "help", "qoidalar", "rules"):
+        await guide_cmd(update, context)
+        return
+
+    if cmd_token in ("vasiyat", "vasiyatnoma", "will"):
+        await will_cmd(update, context)
+        return
+
+    if cmd_token in ("klan", "clan", "sindikat", "oila"):
+        from handlers.clans import clan_cmd
+        await clan_cmd(update, context)
+        return
+
+    if cmd_token in ("newclan", "yangi_klan", "yangiklan"):
+        from handlers.clans import newclan_cmd
+        await newclan_cmd(update, context)
+        return
+
+    if full_lower in ("stats", "statistika", "holat") or cmd_token in ("stats", "statistika", "holat"):
+        from handlers.admin_panel import stats_cmd
+        await stats_cmd(update, context)
+        return
+
+    if full_lower in ("start", "menu", "menyu", "bosh menyu") or cmd_token in ("start", "menu", "menyu"):
+        await start_cmd(update, context)
+        return
+
+    if full_lower in ("reja", "plan", "mexanika") or cmd_token in ("reja", "plan", "mexanika"):
+        await plan_cmd(update, context)
+        return
+
+    if full_lower in ("boost", "premium", "vip") or cmd_token in ("boost", "premium", "vip"):
+        await boost_cmd(update, context)
+        return
+
+    if cmd_token in ("settings", "sozlama", "sozlamalar"):
+        await settings_cmd(update, context)
+        return
+
+    if cmd_token in ("admin", "panel", "boshqaruv"):
+        await admin_cmd(update, context)
+        return
+
+    if cmd_token in ("coin", "givecoin", "sendcoin"):
+        await coin_cmd(update, context)
+        return
+
+    if cmd_token in ("gold", "givegold", "sendgold"):
+        await gold_cmd(update, context)
+        return
+
+    if cmd_token in ("send", "drop", "golddrop"):
+        await send_cmd(update, context)
+        return
+
+    if cmd_token in ("givegul",):
+        await givegul_cmd(update, context)
+        return
+
+    if cmd_token in ("para",):
+        await para_cmd(update, context)
+        return
+
+    if cmd_token in ("dpara",):
+        await dpara_cmd(update, context)
+        return
+
+    if cmd_token in ("mypara", "juftlik", "juftim"):
+        await mypara_cmd(update, context)
+        return
+
+    if cmd_token in ("bro",):
+        await bro_cmd(update, context)
+        return
+
+    if cmd_token in ("dbro",):
+        await dbro_cmd(update, context)
+        return
+
+    if cmd_token in ("mybro", "birodar", "broim"):
+        await mybro_cmd(update, context)
+        return
+
+    if full_lower in ("oyin", "o'yin", "game", "play", "boshlash") or cmd_token in ("game", "oyun", "oyin"):
+        from phases.lobby import create_lobby
+        await create_lobby(update, context)
+        return
+
+    if cmd_token in ("startgame", "start_game", "go"):
+        await startgame_cmd(update, context)
+        return
+
+    if cmd_token in ("stop", "toxtat"):
+        await stop_cmd(update, context)
+        return
+
+    if cmd_token in ("chiqish", "leave", "tark"):
+        await chiqish_cmd(update, context)
+        return
+
+    if cmd_token in ("call", "chaqir", "tagall", "chorlov"):
+        await call_players_cmd(update, context)
+        return
+
+    if cmd_token in ("reveal", "mer"):
+        await reveal_cmd(update, context)
+        return
+
+    # 4. Check if admin sent AI natural language configuration command
     from database.models import is_admin
-    if is_admin(uid, getattr(update.effective_user, "username", "")):
+    adm = is_admin(uid, getattr(update.effective_user, "username", ""))
+    if adm:
         from handlers.admin_ai import process_admin_ai_message
         if await process_admin_ai_message(update, context):
             return
 
-    # 3. Handle intuitive slash-free text commands in private chat
-    lower = text.lower().strip()
-    if lower in ("salom", "assalom", "assalomu alaykum", "assalomualaykum", "salomlar", "hello", "hi"):
-        await salom_cmd(update, context)
-        return
-    if lower in ("profil", "profile", "profilim", "mening profilim", "shaxsiy"):
-        await profile_cmd(update, context)
-        return
-    if lower in ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "coin", "gold", "wallet"):
-        await balance_cmd(update, context)
-        return
-    if lower in ("dokon", "do'kon", "shop", "magazin", "bozor"):
-        from handlers.shop import shop_cmd
-        await shop_cmd(update, context)
-        return
-    if lower in ("reyting", "rating", "top", "top10", "top 10", "top 15", "leaderboard"):
-        await rating_cmd(update, context)
-        return
-    if lower in ("rollar", "guide", "qo'llanma", "qollanma", "yordam", "help", "qoidalar"):
-        await guide_cmd(update, context)
-        return
-    if lower in ("vasiyat", "vasiyatnoma", "will"):
-        await will_cmd(update, context)
-        return
-    if lower in ("klan", "clan", "sindikat", "oila"):
-        from handlers.clans import clan_cmd
-        await clan_cmd(update, context)
-        return
-    if lower in ("stats", "statistika", "holat"):
-        from handlers.admin_panel import stats_cmd
-        await stats_cmd(update, context)
-        return
-    if lower in ("start", "menu", "menyu", "bosh menyu"):
-        await start_cmd(update, context)
-        return
-    if lower in ("reja", "plan", "mexanika"):
-        await plan_cmd(update, context)
-        return
-    if lower in ("boost", "premium", "vip"):
-        await boost_cmd(update, context)
-        return
-    if lower in ("oyin", "o'yin", "game", "play", "boshlash"):
-        from config import BOT_USERNAME
-        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-        add_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")]
-        ])
+    # 5. Default fallback for unhandled PM text or unrecognized slash command
+    from handlers.commands import main_menu_keyboard
+    if first_word.startswith("/"):
+        import html
         await update.message.reply_text(
-            "🎮 <b>Mafia O'yini</b>\n\n"
-            "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
-            "O'yin boshlash uchun botni guruhingizga qo'shing va guruhda <b>/game</b> buyrug'ini yuboring!",
-            reply_markup=add_kb,
+            f"❌ Noma'lum buyruq: <code>{html.escape(first_word)}</code>\n\n"
+            "Barcha mavjud bo'limlar bilan quyidagi menyu orqali tanishishingiz mumkin:",
+            reply_markup=main_menu_keyboard(adm),
             parse_mode="HTML"
         )
-        return
-
-    # Default fallback for unhandled PM text: welcome and navigation keyboard
-    from handlers.commands import main_menu_keyboard
-    adm = is_admin(uid, getattr(update.effective_user, "username", ""))
-    await update.message.reply_text(
-        "👋 <b>Detektiv Mafia Bot</b>\n\n"
-        "Quyidagi menyu orqali kerakli bo'limni tanlang:",
-        reply_markup=main_menu_keyboard(adm),
-        parse_mode="HTML"
-    )
+    else:
+        await update.message.reply_text(
+            "👋 <b>Detektiv Mafia Bot</b>\n\n"
+            "Quyidagi menyu orqali kerakli bo'limni tanlang:",
+            reply_markup=main_menu_keyboard(adm),
+            parse_mode="HTML"
+        )
 
 async def post_init(app: Application):
     """Initialize DB and configure Telegram Bot commands list with strict scopes."""
@@ -240,14 +333,23 @@ from telegram.request import HTTPXRequest
 from telegram.ext import ExtBot
 
 class SafeExtBot(ExtBot):
-    """ExtBot subclass that automatically sanitizes <tg-emoji> tags from outgoing messages."""
+    """ExtBot subclass that automatically sanitizes <tg-emoji> tags and gracefully retries on entity parsing failures."""
     async def _do_post(self, endpoint, data=None, *args, **kwargs):
         if data and isinstance(data, dict):
             for k in ("text", "caption"):
                 if k in data and isinstance(data[k], str) and "<tg-emoji" in data[k]:
                     from core.visuals import strip_anim_emoji_tags
                     data[k] = strip_anim_emoji_tags(data[k])
-        return await super()._do_post(endpoint, data, *args, **kwargs)
+        try:
+            return await super()._do_post(endpoint, data, *args, **kwargs)
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "can't parse entities" in err_msg and data and isinstance(data, dict) and "parse_mode" in data:
+                log.warning("Telegram BadRequest entity parsing error: %s. Retrying without parse_mode...", e)
+                retry_data = dict(data)
+                retry_data.pop("parse_mode", None)
+                return await super()._do_post(endpoint, retry_data, *args, **kwargs)
+            raise
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     log.error("Unhandled exception while processing update: %s", context.error, exc_info=context.error)
@@ -275,7 +377,7 @@ def create_bot_app() -> Application:
     app.add_error_handler(global_error_handler)
 
     # Core commands
-    app.add_handler(CommandHandler(["start"], start_cmd))
+    app.add_handler(CommandHandler(["start", "menu", "menyu"], start_cmd))
     app.add_handler(CommandHandler(["salom", "assalom", "assalomualaykum", "salomlar", "hello", "hi"], salom_cmd))
     app.add_handler(CommandHandler(["startgame", "boshlash", "start_game", "play", "go"], startgame_cmd))
     app.add_handler(CommandHandler(["game", "oyun", "oyin"], create_lobby))
@@ -288,8 +390,8 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler(["reveal", "mer"], reveal_cmd))
     app.add_handler(CommandHandler(["profile", "profil", "me", "shaxsiy"], profile_cmd))
     app.add_handler(CommandHandler(["balance", "balans", "hisob", "pul", "wallet"], balance_cmd))
-    app.add_handler(CommandHandler(["rating", "reyting", "top", "leaderboard"], rating_cmd))
-    app.add_handler(CommandHandler(["guide", "qollanma", "yordam", "help", "rules", "rollar"], guide_cmd))
+    app.add_handler(CommandHandler(["rating", "reyting", "top", "top10", "leaderboard"], rating_cmd))
+    app.add_handler(CommandHandler(["guide", "qollanma", "yordam", "help", "rules", "rollar", "qoidalar"], guide_cmd))
     app.add_handler(CommandHandler(["stop", "toxtat"], stop_cmd))
     app.add_handler(CommandHandler(["chiqish", "leave", "tark"], chiqish_cmd))
     app.add_handler(CommandHandler(["shop", "dokon", "magazin", "bozor"], shop_cmd))
@@ -312,9 +414,9 @@ def create_bot_app() -> Application:
     # All callback queries
     app.add_handler(CallbackQueryHandler(callback_router))
 
-    # Private message handler (e.g. Last Words)
+    # Private message handler (e.g. Last Words, slash-free commands, and fallbacks)
     app.add_handler(
-        MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & (~filters.COMMAND), handle_private_message)
+        MessageHandler(filters.ChatType.PRIVATE & filters.TEXT, handle_private_message)
     )
 
     # Group message tracker

@@ -248,57 +248,72 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return
             except Exception as e:
                 log.warning("Act deep link error: %s", e)
-        elif arg == "profile":
+        arg_lower = arg.lower().strip()
+        if arg_lower in ("profile", "profil", "me", "shaxsiy"):
             await profile_cmd(update, context)
             return
-        elif arg == "balance":
+        elif arg_lower in ("balance", "balans", "hisob", "pul", "wallet"):
             await balance_cmd(update, context)
             return
-        elif arg == "will":
+        elif arg_lower in ("will", "vasiyat", "vasiyatnoma"):
             await will_cmd(update, context)
             return
-        elif arg == "shop":
+        elif arg_lower in ("shop", "dokon", "do'kon", "magazin", "bozor"):
             from handlers.shop import shop_cmd
             await shop_cmd(update, context)
             return
-        elif arg in ("guide", "rules", "help"):
+        elif arg_lower in ("guide", "rules", "help", "qollanma", "qo'llanma", "yordam", "rollar", "qoidalar"):
             await guide_cmd(update, context)
             return
-        elif arg in ("rating", "top"):
+        elif arg_lower in ("rating", "top", "reyting", "leaderboard", "top10"):
             await rating_cmd(update, context)
             return
-        elif arg in ("clan", "clans"):
+        elif arg_lower in ("clan", "clans", "klan", "sindikat", "oila"):
             from handlers.clans import clan_cmd
             await clan_cmd(update, context)
             return
-        elif arg == "admin":
+        elif arg_lower in ("admin", "panel", "boshqaruv"):
             from handlers.admin_panel import admin_cmd
             await admin_cmd(update, context)
             return
-        elif arg == "stats":
+        elif arg_lower in ("stats", "statistika", "holat"):
             from handlers.admin_panel import stats_cmd
             await stats_cmd(update, context)
             return
-        elif arg == "plan":
+        elif arg_lower in ("plan", "reja", "mexanika"):
             await plan_cmd(update, context)
             return
-        elif arg == "boost":
+        elif arg_lower in ("boost", "premium", "vip"):
             await boost_cmd(update, context)
             return
-        elif arg == "mypara":
+        elif arg_lower in ("mypara", "juftlik", "juftim"):
             from handlers.social import mypara_cmd
             await mypara_cmd(update, context)
             return
-        elif arg == "mybro":
+        elif arg_lower in ("mybro", "birodar", "broim"):
             from handlers.social import mybro_cmd
             await mybro_cmd(update, context)
             return
-        elif arg == "settings":
+        elif arg_lower in ("settings", "sozlama", "sozlamalar"):
             from handlers.settings import settings_cmd
             await settings_cmd(update, context)
             return
-        elif arg in ("salom", "hello"):
+        elif arg_lower in ("salom", "hello", "assalom", "assalomualaykum"):
             await salom_cmd(update, context)
+            return
+        elif arg_lower in ("game", "oyin", "o'yin", "play"):
+            from config import BOT_USERNAME
+            add_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await update.message.reply_text(
+                "🎮 <b>Mafia O'yini</b>\n\n"
+                "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+                "O'yin boshlash uchun botni guruhingizga qo'shing va guruhda <b>/game</b> buyrug'ini yuboring!",
+                reply_markup=add_kb,
+                parse_mode="HTML"
+            )
             return
 
     welcome_text = (
@@ -331,9 +346,21 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def startgame_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
+    msg = update.message or update.effective_message
     if not chat or chat.type not in ("group", "supergroup"):
-        if update.message:
-            await update.message.reply_text("❌ Ushbu buyruq faqat Telegram guruhlarida ishlaydi.")
+        if msg:
+            from config import BOT_USERNAME
+            add_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await msg.reply_text(
+                "🎮 <b>O'yinni boshlash (/startgame)</b>\n\n"
+                "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+                "Botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
+                reply_markup=add_kb,
+                parse_mode="HTML"
+            )
         return
 
     chat_id = chat.id
@@ -399,31 +426,39 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         current_will = await get_will(user.id)
         if current_will:
-            await msg.reply_text(
+            reply_content = (
                 f"{scroll} <b>Sizning amaldagi Vasiyatnomangiz:</b>\n\n"
                 f"<blockquote>{html.escape(current_will)}</blockquote>\n\n"
-                f"Yangi vasiyat yozish uchun: <code>/will &lt;matn&gt;</code>",
-                reply_markup=will_kb,
-                parse_mode="HTML"
+                f"Yangi vasiyat yozish uchun: <code>/will &lt;matn&gt;</code>"
             )
         else:
-            await msg.reply_text(
+            reply_content = (
                 f"{scroll} <b>Sizda hali Vasiyatnoma yo'q!</b>\n\n"
                 "Tunda yoki kunduzi o'ldirilganingizda butun shaharga sirli ma'lumot qoldirish uchun:\n"
-                "<code>/will Mening vasiyatim shu...</code> buyrug'idan foydalaning.",
-                reply_markup=will_kb,
-                parse_mode="HTML"
+                "<code>/will Mening vasiyatim shu...</code> buyrug'idan foydalaning."
             )
+        if update.callback_query:
+            try:
+                await update.callback_query.edit_message_text(reply_content, reply_markup=will_kb, parse_mode="HTML")
+                return
+            except Exception:
+                pass
+        await msg.reply_text(reply_content, reply_markup=will_kb, parse_mode="HTML")
         return
 
     text = " ".join(context.args)
     await save_player_will(user.id, text)
-    await msg.reply_text(
+    saved_text = (
         "✅ <b>Vasiyatnomangiz muvaffaqiyatli saqlandi!</b>\n"
-        "Agar o'yinda halok bo'lsangiz, ushbu xabar shahar ahlisiga e'lon qilinadi.",
-        reply_markup=will_kb,
-        parse_mode="HTML"
+        "Agar o'yinda halok bo'lsangiz, ushbu xabar shahar ahlisiga e'lon qilinadi."
     )
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_text(saved_text, reply_markup=will_kb, parse_mode="HTML")
+            return
+        except Exception:
+            pass
+    await msg.reply_text(saved_text, reply_markup=will_kb, parse_mode="HTML")
 
 async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -471,6 +506,12 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
         ]
     ])
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_text(text, reply_markup=profile_kb, parse_mode="HTML")
+            return
+        except Exception:
+            pass
     await msg.reply_text(text, reply_markup=profile_kb, parse_mode="HTML")
 
 async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -507,13 +548,18 @@ async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
         ]
     ])
-    await msg.reply_text(
+    b_text = (
         f"💰 <b>Sizning balansingiz:</b>\n\n"
         f"🪙 Tangalar: <b>{coins} Coin</b>\n"
-        f"🥇 Oltinlar: <b>{gold} Gold</b>",
-        reply_markup=balance_kb,
-        parse_mode="HTML"
+        f"🥇 Oltinlar: <b>{gold} Gold</b>"
     )
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_text(b_text, reply_markup=balance_kb, parse_mode="HTML")
+            return
+        except Exception:
+            pass
+    await msg.reply_text(b_text, reply_markup=balance_kb, parse_mode="HTML")
 
 async def rating_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -551,7 +597,14 @@ async def rating_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")
         ]
     ])
-    await msg.reply_text("\n".join(lines), reply_markup=rating_kb, parse_mode="HTML")
+    r_text = "\n".join(lines)
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_text(r_text, reply_markup=rating_kb, parse_mode="HTML")
+            return
+        except Exception:
+            pass
+    await msg.reply_text(r_text, reply_markup=rating_kb, parse_mode="HTML")
 
 async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -592,10 +645,22 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 break
         if matched:
             card = format_role_dossier(matched)
+            if update.callback_query:
+                try:
+                    await update.callback_query.edit_message_text(card, reply_markup=guide_kb, parse_mode="Markdown")
+                    return
+                except Exception:
+                    pass
             await msg.reply_text(card, reply_markup=guide_kb, parse_mode="Markdown")
             return
         else:
             safe_query = html.escape(query)
+            if update.callback_query:
+                try:
+                    await update.callback_query.edit_message_text(f"❌ <b>{safe_query}</b> nomli rol topilmadi. Ro'yxatdan birini tanlang.", reply_markup=guide_kb, parse_mode="HTML")
+                    return
+                except Exception:
+                    pass
             await msg.reply_text(f"❌ <b>{safe_query}</b> nomli rol topilmadi. Ro'yxatdan birini tanlang.", reply_markup=guide_kb, parse_mode="HTML")
             return
 
@@ -633,6 +698,12 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💡 *Har bir rolning to'liq taktik yo'riqnomasi uchun:* `/guide <rol>`\n"
         "_Masalan:_ `/guide Detektiv` yoki `/guide Joker`"
     )
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_text(text, reply_markup=guide_kb, parse_mode="Markdown")
+            return
+        except Exception:
+            pass
     await msg.reply_text(text, reply_markup=guide_kb, parse_mode="Markdown")
 
 async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -642,7 +713,17 @@ async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not chat or not msg:
         return
     if chat.type not in ("group", "supergroup"):
-        await msg.reply_text("❌ Ushbu buyruq faqat Telegram guruhlarida ishlaydi.")
+        from config import BOT_USERNAME
+        add_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🛑 <b>O'yinni to'xtatish (/stop)</b>\n\n"
+            "Ushbu buyruq faqat <b>Telegram guruhlarida ishlaydi</b> (o'yin yoki lobbyni to'xtatish uchun).",
+            reply_markup=add_kb,
+            parse_mode="HTML"
+        )
         return
 
     chat_id = chat.id
@@ -674,38 +755,53 @@ async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reveal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    if not chat or not user:
+    msg = update.message or update.effective_message
+    if not chat or not user or not msg:
         return
 
     # Find active game either by group chat id or by user membership
     game = games.get(chat.id) if chat.type in ("group", "supergroup") else find_game_by_user(user.id)
     if not game:
-        await update.message.reply_text("ℹ️ Hozirda siz ishtirok etayotgan faol o'yin topilmadi.")
+        if chat.type == "private":
+            from config import BOT_USERNAME
+            pm_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await msg.reply_text(
+                "🎖️ <b>Shahar hokimi (Mer) oshkor bo'lishi (/reveal)</b>\n\n"
+                "Hozirda siz ishtirok etayotgan faol o'yin topilmadi.\n"
+                "Agar siz o'yinda <b>Mer</b> roliga ega bo'lsangiz, ushbu buyruq orqali o'zingizni shahar ahliga oshkor qilishingiz mumkin.",
+                reply_markup=pm_kb,
+                parse_mode="HTML"
+            )
+        else:
+            await msg.reply_text("ℹ️ Hozirda siz ishtirok etayotgan faol o'yin topilmadi.")
         return
 
     chat_id = game["chat"]
     if game.get("roles", {}).get(user.id) != "Mer":
-        await update.message.reply_text("❌ Faqat shahar hokimi (Mer) o'zini oshkor qila oladi.")
+        await msg.reply_text("❌ Faqat shahar hokimi (Mer) o'zini oshkor qila oladi.")
         return
 
     if not game.get("alive", {}).get(user.id, False):
-        await update.message.reply_text("💀 Halok bo'lganlar o'zini oshkor qila olmaydi.")
+        await msg.reply_text("💀 Halok bo'lganlar o'zini oshkor qila olmaydi.")
         return
 
     if user.id in game.get("mayor_revealed", set()):
-        await update.message.reply_text("ℹ️ Siz allaqachon mer ekanligingizni e'lon qilgansiz.")
+        await msg.reply_text("ℹ️ Siz allaqachon mer ekanligingizni e'lon qilgansiz.")
         return
 
     game.setdefault("mayor_revealed", set()).add(user.id)
-    m_name = display_name(game, user.id)
+    m_name = html.escape(display_name(game, user.id))
     announcement = (
-        "👑 *Shahar hokimi (Mer) oshkor bo'ldi!*\n\n"
-        f"👤 *{m_name}* rasman o'zining shahar hokimi ekanligini e'lon qildi!\n"
-        "Uning har bir ovozi bundan buyon *3 ta ovoz* kuchiga teng bo'ladi."
+        "👑 <b>Shahar hokimi (Mer) oshkor bo'ldi!</b>\n\n"
+        f"👤 <b>{m_name}</b> rasman o'zining shahar hokimi ekanligini e'lon qildi!\n"
+        "Uning har bir ovozi bundan buyon <b>3 ta ovoz</b> kuchiga teng bo'ladi."
     )
-    await context.bot.send_message(chat_id=chat_id, text=announcement, parse_mode="Markdown")
+    await context.bot.send_message(chat_id=chat_id, text=announcement, parse_mode="HTML")
     if chat.id != chat_id:
-        await update.message.reply_text("🎖️ Siz shahar hokimi ekanligingizni guruhda rasman e'lon qildingiz!")
+        await msg.reply_text("🎖️ Siz shahar hokimi ekanligingizni guruhda rasman e'lon qildingiz!")
     await save_runtime(game)
 
 async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -715,7 +811,17 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not chat or not msg or not user:
         return
     if chat.type not in ("group", "supergroup"):
-        await msg.reply_text("ℹ️ Lobbyni tark etish (/chiqish) faqat Telegram guruhlarida o'yin ochilganda ishlaydi.")
+        from config import BOT_USERNAME
+        add_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🚪 <b>Lobbyni tark etish (/chiqish)</b>\n\n"
+            "Ushbu buyruq faqat <b>Telegram guruhlarida</b> ochilgan lobbyni tark etish uchun ishlatiladi.",
+            reply_markup=add_kb,
+            parse_mode="HTML"
+        )
         return
     lobby = lobbies.get(chat.id)
     if lobby and lobby.get("open"):
@@ -775,9 +881,20 @@ async def salom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def call_players_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
+    msg = update.message or update.effective_message
     if not chat or chat.type not in ("group", "supergroup"):
-        if update.message:
-            await update.message.reply_text("❌ Ushbu buyruq faqat Telegram guruhlarida ishlaydi.")
+        if msg:
+            from config import BOT_USERNAME
+            add_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+            ])
+            await msg.reply_text(
+                "📣 <b>O'yinchilarni chaqirish (/call)</b>\n\n"
+                "Ushbu buyruq faqat <b>Telegram guruhlarida</b> o'yinchilarni mafia o'yiniga chorlash uchun ishlatiladi.",
+                reply_markup=add_kb,
+                parse_mode="HTML"
+            )
         return
 
     if user:
