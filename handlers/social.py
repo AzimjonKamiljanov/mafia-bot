@@ -4,6 +4,7 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
+from config import BOT_USERNAME
 from database.models import (
     ensure_user, get_user, change_balance, get_balance, is_admin, add_item, take_item
 )
@@ -65,8 +66,27 @@ async def dpara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text("💔 Juftlik bekor qilindi.")
 
 async def mypara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    user = msg.from_user
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+    if not msg or not user:
+        return
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=mypara"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            f"💍 <b>Juftlik (Para) ma'lumotlari</b>\n\n"
+            f"Hurmatli {html.escape(user.first_name)}, juftlik ma'lumotlaringiz maxfiyligi uchun "
+            f"faqat botning shaxsiy chatida ko'rsatiladi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
     db = await get_db()
     async with db.execute("SELECT other_id FROM social_links WHERE user_id = ? AND kind = 'para'", (user.id,)) as cursor:
         row = await cursor.fetchone()
@@ -75,7 +95,7 @@ async def mypara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     partner = await get_user(row["other_id"])
     name = partner["name"] if partner else "Noma'lum"
-    await msg.reply_text(f"💍 Sizning juftingiz: *{name}*", parse_mode="Markdown")
+    await msg.reply_text(f"💍 Sizning juftingiz: <b>{html.escape(name)}</b>", parse_mode="HTML")
 
 async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -127,8 +147,27 @@ async def dbro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.reply_text("🤝 Birodarlik rishtasi uzildi.")
 
 async def mybro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    user = msg.from_user
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+    if not msg or not user:
+        return
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=mybro"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            f"🤝 <b>Birodarlik (Bro) ma'lumotlari</b>\n\n"
+            f"Hurmatli {html.escape(user.first_name)}, birodarlik ma'lumotlaringiz maxfiyligi uchun "
+            f"faqat botning shaxsiy chatida ko'rsatiladi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
     db = await get_db()
     async with db.execute("SELECT other_id FROM social_links WHERE user_id = ? AND kind = 'bro'", (user.id,)) as cursor:
         row = await cursor.fetchone()
@@ -137,7 +176,7 @@ async def mybro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     bro = await get_user(row["other_id"])
     name = bro["name"] if bro else "Noma'lum"
-    await msg.reply_text(f"🤝 Sizning birodaringiz: *{name}*", parse_mode="Markdown")
+    await msg.reply_text(f"🤝 Sizning birodaringiz: <b>{html.escape(name)}</b>", parse_mode="HTML")
 
 async def givegul_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message

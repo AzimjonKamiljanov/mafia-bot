@@ -222,6 +222,8 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
             solo_roles.append(r_display)
 
     announcement_lines = [
+        f"🌙 *Tun #{night_num}*",
+        "",
         "Tirik o'yinchilar:",
         *player_lines,
         "",

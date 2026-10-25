@@ -160,8 +160,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not data.startswith("adm:"):
         return False
 
+    chat = update.effective_chat
+    if chat and getattr(chat, "type", "") in ("group", "supergroup"):
+        await q.answer("👑 Admin boshqaruvi faqat botning shaxsiy chatida amalga oshiriladi.", show_alert=True)
+        return True
+
     user = update.effective_user
-    if not user or not is_admin(user.id, user.username):
+    if not user or not is_admin(user.id, getattr(user, "username", "")):
         await q.answer("⛔ Ruxsat yo'q!", show_alert=True)
         return True
 

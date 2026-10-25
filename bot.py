@@ -114,7 +114,7 @@ async def post_init(app: Application):
     """Initialize DB and configure Telegram Bot commands list with strict scopes."""
     await init_db()
     try:
-        # 1. Group commands scope: Only group game commands
+        # 1. Group commands: Only group game commands
         group_commands = [
             BotCommand("game", "Guruhda Mafia o'yinini ochish"),
             BotCommand("startgame", "O'yinni boshlash"),
@@ -127,6 +127,8 @@ async def post_init(app: Application):
             BotCommand("bro", "Birodarlik rishtasi (Reply)"),
             BotCommand("send", "Guruhga Gold Drop tashlash"),
         ]
+        # 0. Default scope fallback: Safe group commands (NEVER leak admin commands)
+        await app.bot.set_my_commands(group_commands, scope=BotCommandScopeDefault())
         await app.bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
 
         # 2. Private chats scope: Personal commands

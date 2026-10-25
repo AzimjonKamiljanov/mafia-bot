@@ -51,10 +51,18 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     q = update.callback_query
     if not q:
         return
+    chat = update.effective_chat
+    if chat and getattr(chat, "type", "") in ("group", "supergroup"):
+        await q.answer("🛍️ Do'kon va inventar faqat botning shaxsiy chatida ishlaydi.", show_alert=True)
+        return
+
     user = q.from_user
     uid = user.id
     await ensure_user(user)
     data = q.data
+
+    if data in ("shop:category:badges", "shop_gold"):
+        data = "shop_gold"
 
     if data == "menu_shop" or data == "shop_main":
         await q.answer()

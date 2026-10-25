@@ -15,7 +15,7 @@ from core.engine import (
 )
 from phases.lobby import create_lobby, lobby_text, lobby_keyboard
 from core.will import save_player_will, format_will_announcement
-from core.visuals import anim_emoji
+from core.visuals import anim_emoji, format_badge_with_anim_emoji
 
 log = logging.getLogger("detektiv.handlers.commands")
 
@@ -276,21 +276,35 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from handlers.admin_panel import stats_cmd
             await stats_cmd(update, context)
             return
+        elif arg == "plan":
+            await plan_cmd(update, context)
+            return
+        elif arg == "boost":
+            await boost_cmd(update, context)
+            return
+        elif arg == "mypara":
+            from handlers.social import mypara_cmd
+            await mypara_cmd(update, context)
+            return
+        elif arg == "mybro":
+            from handlers.social import mybro_cmd
+            await mybro_cmd(update, context)
+            return
 
     welcome_text = (
-        "🎭 *Detektiv Mafia Botiga Xush Kelibsiz!*\n\n"
+        f"{anim_emoji('detective', '🎭')} <b>Detektiv Mafia Botiga Xush Kelibsiz!</b>\n\n"
         "Shahar va mafiya o'rtasidagi shiddatli psixologik kurash.\n\n"
-        "🌟 Imkoniyatlar:\n"
-        "• 🕵️ 24+ noyob rollar balansi\n"
-        "• 🔍 Kriminalistik ashyoviy dalillar tergovi\n"
-        "• 📜 So'nggi Vasiyatnoma tizimi (/will)\n"
-        "• 🌫️ Dinamik shahar hodisalari va ob-havo\n"
-        "• 👻 Ruhlar olami va o'liklar bashorati\n\n"
+        f"{anim_emoji('sparkles', '🌟')} <b>Imkoniyatlar:</b>\n"
+        f"• {anim_emoji('detective', '🕵️')} <b>24+ noyob rollar balansi</b>\n"
+        f"• {anim_emoji('target', '🔍')} <b>Kriminalistik ashyoviy dalillar tergovi</b>\n"
+        f"• {anim_emoji('scroll', '📜')} <b>So'nggi Vasiyatnoma tizimi (/will)</b>\n"
+        f"• {anim_emoji('moon', '🌫️')} <b>Dinamik shahar hodisalari va ob-havo</b>\n"
+        f"• {anim_emoji('skull', '👻')} <b>Ruhlar olami va o'liklar bashorati</b>\n\n"
         "Quyidagi menyu orqali kerakli bo'limni tanlang:"
     )
 
     if chat.type == "private":
-        await update.message.reply_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text(welcome_text, reply_markup=main_menu_keyboard(), parse_mode="HTML")
     else:
         if chat.id in lobbies and lobbies[chat.id].get("open"):
             await startgame_cmd(update, context)
@@ -412,7 +426,8 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    badge = await get_badge(user.id) or "Yo'q"
+    badge_raw = await get_badge(user.id) or "Yo'q"
+    badge_display = format_badge_with_anim_emoji(badge_raw) if badge_raw and badge_raw != "Yo'q" else "Yo'q"
     admin_tag = " (Admin)" if is_admin(user.id, getattr(user, "username", "")) else ""
 
     text = (
@@ -422,7 +437,7 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎮 Jami o'yinlar: <b>{u['games']}</b>\n"
         f"<tg-emoji emoji-id=\"5368324170671202286\">🏆</tg-emoji> G'alabalar: <b>{u['wins']}</b>\n"
         f"❌ Mag'lubiyatlar: <b>{u['losses']}</b>\n"
-        f"<tg-emoji emoji-id=\"5370845348392576392\">🎖️</tg-emoji> Faol belgi: <b>{html.escape(badge)}</b>"
+        f"<tg-emoji emoji-id=\"5370845348392576392\">🎖️</tg-emoji> Faol belgi: <b>{badge_display}</b>"
     )
     await msg.reply_text(text, parse_mode="HTML")
 
@@ -706,33 +721,60 @@ async def call_players_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await call_players_in_chat(context, chat.id, caller_name)
 
 async def plan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    user = update.effective_user
+    msg = update.message or update.effective_message
+    if not user or not msg:
+        return
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    adm = is_admin(user.id, getattr(user, "username", "")) if user else False
+
+    if is_group:
+        if not adm:
+            return
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=plan"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            "🗺️ <b>O'yin Rejasi va Mexanikasi</b>\n\n"
+            "Admin boshqaruv rejasi faqat botning shaxsiy chatida ochiladi:",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
     plan_text = (
-        "🗺️ <b>DETEKTIV MAFIA — TO'LIQ O'YIN REJASI VA MEXANIKASI</b>\n\n"
+        f"{anim_emoji('target', '🗺️')} <b>DETEKTIV MAFIA — TO'LIQ O'YIN REJASI VA MEXANIKASI</b>\n\n"
         "✨ <b>1. O'yin Bosqichlari:</b>\n"
-        "• 🌙 <b>Tun:</b> Yashirin harakatlar — Mafia suiqasdi, Shifokor davosi, Detektiv tekshiruvi.\n"
-        "• ☀️ <b>Kun:</b> Shahar uyg'onadi, qurbonlar va tungi xabarlar e'lon qilinadi.\n"
-        "• 🗳 <b>Ovoz berish:</b> Shahar gumonlanuvchini sudga tortish uchun ovoz beradi.\n"
-        "• ⚖️ <b>Sud (Hukm):</b> Gumondor sud minbariga chiqadi. Shahar: ⚔️ Qatl yoki 🕊️ Afv!\n\n"
+        f"• {anim_emoji('moon', '🌙')} <b>Tun:</b> Yashirin harakatlar — Mafia suiqasdi, Shifokor davosi, Detektiv tekshiruvi.\n"
+        f"• {anim_emoji('sun', '☀️')} <b>Kun:</b> Shahar uyg'onadi, qurbonlar va tungi xabarlar e'lon qilinadi.\n"
+        f"• {anim_emoji('scales', '🗳')} <b>Ovoz berish:</b> Shahar gumonlanuvchini sudga tortish uchun ovoz beradi.\n"
+        f"• {anim_emoji('swords', '⚖️')} <b>Sud (Hukm):</b> Gumondor sud minbariga chiqadi. Shahar: ⚔️ Qatl yoki 🕊️ Afv!\n\n"
         "🎭 <b>2. Rollar va Taqsimot Balansi:</b>\n"
         "• 🔵 <b>Shahar (Town):</b> Detektiv, Sherif (faqat 7+ kishida), Doktor, Tansoqchi, Advokat, Sayyoh, Ruhshunos, Mer, Boy, Qirol, Savdogar, Fuqaro.\n"
         "• 🔴 <b>Mafiya (Red):</b> Boshliq (Don), Qotil, Soya, Soxtachi, Maftunkor, Kamikadze, Bo'ri.\n"
         "• 🟡 <b>Yakkaxonlar (Solo):</b> Joker, Maniak, Pirotexnik, Qasoskor, Pul o'g'risi, Firibgar.\n\n"
-        "🛡️ <b>3. 3-Tun AFK Kafolati:</b>\n"
+        f"• {anim_emoji('shield', '🛡️')} <b>3. 3-Tun AFK Kafolati:</b>\n"
         "Bir martalik ovoz bermaslikka jazo yo'q! Faqat ketma-ket 3 tun harakatsiz qolgandagina uxlash jarimasi beriladi.\n\n"
         "⚙️ <b>Sozlamalar:</b> <code>/settings</code> orqali vaqtlar va rollarni moslashtiring! 🚀"
     )
-    chat_id = update.effective_chat.id if update.effective_chat else 0
-    plan_kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⚙️ Sozlamalar (/settings)", callback_data=f"sett:menu:{chat_id}"),
-            InlineKeyboardButton("📖 Rollar Qo'llanmasi", callback_data="guide_roles")
-        ]
-    ])
-    await update.message.reply_text(plan_text, reply_markup=plan_kb, parse_mode="HTML")
+    chat_id = chat.id if chat else 0
+    buttons = []
+    if adm:
+        buttons.append([InlineKeyboardButton("⚙️ Sozlamalar (/settings)", callback_data=f"sett:menu:{chat_id}")])
+    buttons.append([InlineKeyboardButton("📖 Rollar Qo'llanmasi", callback_data="guide_roles")])
+    plan_kb = InlineKeyboardMarkup(buttons)
+    await msg.reply_text(plan_text, reply_markup=plan_kb, parse_mode="HTML")
 
 async def boost_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat = update.effective_chat
+    msg = update.message or update.effective_message
+    if not user or not msg:
+        return
+
     boost_text = (
         f"{anim_emoji('rocket', '🚀')} <b>TELEGRAM PREMIUM & GURUHNI BOOST QILISH</b>\n\n"
         f"{anim_emoji('gem', '💎')} <b>Detektiv Mafia loyihasini qo'llab-quvvatlang!</b>\n\n"
@@ -747,11 +789,15 @@ async def boost_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     adm = is_admin(user.id, getattr(user, "username", "")) if user else False
     is_pm = bool(chat and getattr(chat, "type", "") == "private")
 
-    buttons = [[InlineKeyboardButton("💎 VIP Do'kon", callback_data="shop:category:badges")]]
-    if adm and is_pm:
-        buttons[0].append(InlineKeyboardButton("👑 Master Admin Paneli", callback_data="adm:menu"))
+    buttons = []
+    if is_pm:
+        buttons.append([InlineKeyboardButton("💎 VIP Do'kon", callback_data="shop_gold")])
+        if adm:
+            buttons[0].append(InlineKeyboardButton("👑 Master Admin Paneli", callback_data="adm:menu"))
+    else:
+        buttons.append([InlineKeyboardButton("💬 VIP Do'kon (Shaxsiy)", url=f"https://t.me/{BOT_USERNAME}?start=shop")])
 
     boost_kb = InlineKeyboardMarkup(buttons)
-    await update.message.reply_text(boost_text, reply_markup=boost_kb, parse_mode="HTML")
+    await msg.reply_text(boost_text, reply_markup=boost_kb, parse_mode="HTML")
 
 

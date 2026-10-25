@@ -76,10 +76,26 @@ async def send_atmospheric_message(
         except Exception as e:
             log.warning("Could not dispatch audio file %s: %s", audio_path, e)
 
+    # Trigger native interactive 3D physics animation if applicable
+    if sound_type:
+        try:
+            from core.visuals import send_animated_dice_effect
+            if sound_type == "execution":
+                await send_animated_dice_effect(bot, chat_id, emoji="🎯")
+            elif sound_type in ("night", "morning", "saved", "verdict"):
+                await send_animated_dice_effect(bot, chat_id, emoji="🎲")
+        except Exception as ae:
+            log.debug("Visual effect dispatch ignored: %s", ae)
+
     full_text = text
     cue = SOUND_ICONS.get(sound_type, "") if sound_type else ""
     if cue:
         full_text = f"{cue}\n\n{text}"
+
+    # Strip custom HTML tg-emoji tags if sending with Markdown or plain text
+    if parse_mode != "HTML":
+        from core.visuals import strip_anim_emoji_tags
+        full_text = strip_anim_emoji_tags(full_text)
 
     if photo_path and os.path.exists(photo_path):
         try:

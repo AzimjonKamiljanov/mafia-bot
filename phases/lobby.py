@@ -36,8 +36,9 @@ def lobby_text(lobby: Dict[str, Any]) -> str:
     ]
 
     if players:
+        from core.visuals import format_player_title_html
         for i, uid in enumerate(players, 1):
-            name = html.escape(display_name(lobby, uid))
+            name = format_player_title_html(lobby, uid)
             lines.append(f"{i}. 👤 {name}")
     else:
         lines.append("<i>Hozircha hech kim ro'yxatdan o'tmadi.</i>")

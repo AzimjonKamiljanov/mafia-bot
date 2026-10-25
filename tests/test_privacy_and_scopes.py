@@ -1,22 +1,30 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from telegram import (
-    BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat
+    BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats,
+    BotCommandScopeChat, BotCommandScopeDefault
 )
 from database.db import init_db
 from config import BOT_USERNAME, ADMIN_IDS
 from bot import post_init, create_bot_app
 from handlers.commands import (
-    profile_cmd, balance_cmd, will_cmd, rating_cmd, guide_cmd, start_cmd, boost_cmd, salom_cmd
+    profile_cmd, balance_cmd, will_cmd, rating_cmd, guide_cmd, start_cmd,
+    boost_cmd, salom_cmd, plan_cmd
 )
-from handlers.shop import shop_cmd
+from handlers.shop import shop_cmd, shop_callback_handler
 from handlers.clans import clan_cmd, newclan_cmd
-from handlers.admin_panel import admin_cmd, stats_cmd
-from core.visuals import anim_emoji, send_animated_dice_effect, TG_ANIMATED_EMOJIS
+from handlers.social import mypara_cmd, mybro_cmd
+from handlers.admin_panel import admin_cmd, stats_cmd, handle_admin_callback
+from core.visuals import (
+    anim_emoji, send_animated_dice_effect, send_animated_sticker,
+    format_badge_with_anim_emoji, format_player_title_html,
+    strip_anim_emoji_tags, TG_ANIMATED_EMOJIS
+)
+from core.audio_effects import send_atmospheric_message
 
 @pytest.mark.asyncio
 async def test_bot_command_scopes_registration():
-    """Verify that Telegram set_my_commands enforces strict scope separation."""
+    """Verify that Telegram set_my_commands enforces strict scope separation and default fallback safety."""
     await init_db()
     mock_app = MagicMock()
     mock_app.bot = MagicMock()
@@ -25,7 +33,19 @@ async def test_bot_command_scopes_registration():
     await post_init(mock_app)
 
     calls = mock_app.bot.set_my_commands.call_args_list
-    assert len(calls) >= 2, "set_my_commands must be called for group, private, and admin scopes"
+    assert len(calls) >= 3, "set_my_commands must be called for default, group, private, and admin scopes"
+
+    forbidden_in_groups = ["admin", "profile", "balance", "will", "shop", "guide", "rating", "clan", "stats", "plan"]
+
+    # 0. Default scope fallback verification (MUST NOT leak admin commands)
+    default_call = next(
+        (c for c in calls if isinstance(c.kwargs.get("scope"), BotCommandScopeDefault)),
+        None
+    )
+    assert default_call is not None, "BotCommandScopeDefault must be registered to sanitize fallback commands"
+    default_cmd_names = [cmd.command for cmd in default_call.args[0]]
+    for forbidden in forbidden_in_groups:
+        assert forbidden not in default_cmd_names, f"{forbidden} must NOT be in default commands"
 
     # 1. Group chats scope verification
     group_call = next(
@@ -40,7 +60,6 @@ async def test_bot_command_scopes_registration():
         assert expected_cmd in group_cmd_names, f"Expected {expected_cmd} in group commands"
 
     # NEVER show private/admin commands in group chats!
-    forbidden_in_groups = ["admin", "profile", "balance", "will", "shop", "guide", "rating", "clan", "stats"]
     for forbidden in forbidden_in_groups:
         assert forbidden not in group_cmd_names, f"{forbidden} must NOT be visible in group commands"
 
@@ -158,9 +177,27 @@ async def test_group_to_pm_privacy_redirection_for_personal_commands():
     kb7 = up7.message.reply_text.call_args[1]["reply_markup"]
     assert any(btn.url == f"https://t.me/{BOT_USERNAME}?start=clan" for row in kb7.inline_keyboard for btn in row)
 
+    # 8. /mypara in group
+    up8 = make_group_update(uid=1008, first_name="Farrux")
+    await mypara_cmd(up8, mock_context)
+    assert up8.message.reply_text.called
+    msg_text8 = up8.message.reply_text.call_args[0][0]
+    kb8 = up8.message.reply_text.call_args[1]["reply_markup"]
+    assert "Juftlik (Para) ma'lumotlari" in msg_text8
+    assert any(btn.url == f"https://t.me/{BOT_USERNAME}?start=mypara" for row in kb8.inline_keyboard for btn in row)
+
+    # 9. /mybro in group
+    up9 = make_group_update(uid=1009, first_name="Jasur")
+    await mybro_cmd(up9, mock_context)
+    assert up9.message.reply_text.called
+    msg_text9 = up9.message.reply_text.call_args[0][0]
+    kb9 = up9.message.reply_text.call_args[1]["reply_markup"]
+    assert "Birodarlik (Bro) ma'lumotlari" in msg_text9
+    assert any(btn.url == f"https://t.me/{BOT_USERNAME}?start=mybro" for row in kb9.inline_keyboard for btn in row)
+
 @pytest.mark.asyncio
 async def test_admin_and_stats_group_privacy():
-    """Verify that /admin and /stats in groups protect admin controls and redirect admins to PM."""
+    """Verify that /admin, /stats, and /plan in groups protect admin controls and redirect admins to PM."""
     await init_db()
 
     def make_group_update(uid, username, first_name):
@@ -204,6 +241,20 @@ async def test_admin_and_stats_group_privacy():
     stats_reply = admin_up.message.reply_text.call_args[0][0]
     stats_kb = admin_up.message.reply_text.call_args[1]["reply_markup"]
     assert any(btn.url == f"https://t.me/{BOT_USERNAME}?start=stats" for row in stats_kb.inline_keyboard for btn in row)
+
+    # 5. Non-admin calls /plan in group -> No response
+    non_admin_up.message.reply_text.reset_mock()
+    await plan_cmd(non_admin_up, mock_context)
+    assert not non_admin_up.message.reply_text.called
+
+    # 6. Admin calls /plan in group -> Redirects to PM with start=plan
+    admin_up.message.reply_text.reset_mock()
+    await plan_cmd(admin_up, mock_context)
+    assert admin_up.message.reply_text.called
+    plan_reply = admin_up.message.reply_text.call_args[0][0]
+    plan_kb = admin_up.message.reply_text.call_args[1]["reply_markup"]
+    assert "Admin boshqaruv rejasi faqat botning shaxsiy chatida ochiladi" in plan_reply
+    assert any(btn.url == f"https://t.me/{BOT_USERNAME}?start=plan" for row in plan_kb.inline_keyboard for btn in row)
 
 @pytest.mark.asyncio
 async def test_start_command_deep_link_dispatch():
@@ -259,6 +310,93 @@ async def test_start_command_deep_link_dispatch():
     assert up.message.reply_text.called
     assert "STATISTIKASI" in up.message.reply_text.call_args[0][0]
 
+    # 6. /start plan in PM
+    up.message.reply_text.reset_mock()
+    mock_context.args = ["plan"]
+    await start_cmd(up, mock_context)
+    assert up.message.reply_text.called
+    assert "TO'LIQ O'YIN REJASI" in up.message.reply_text.call_args[0][0]
+
+    # 7. /start boost in PM
+    up.message.reply_text.reset_mock()
+    mock_context.args = ["boost"]
+    await start_cmd(up, mock_context)
+    assert up.message.reply_text.called
+    assert "TELEGRAM PREMIUM" in up.message.reply_text.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_boost_command_group_vs_pm():
+    """Verify that /boost provides URL redirect in groups and callback buttons in PM."""
+    mock_context = MagicMock()
+
+    # 1. Group /boost
+    group_up = MagicMock()
+    group_up.effective_chat.type = "supergroup"
+    group_up.effective_chat.id = -100555
+    group_up.effective_user.id = 112233
+    group_up.effective_user.username = "player"
+    group_up.message = MagicMock()
+    group_up.message.reply_text = AsyncMock()
+    group_up.effective_message = group_up.message
+
+    await boost_cmd(group_up, mock_context)
+    assert group_up.message.reply_text.called
+    g_kb = group_up.message.reply_text.call_args[1]["reply_markup"]
+    # Group must have a safe URL button, NEVER a broken callback
+    assert any(btn.url == f"https://t.me/{BOT_USERNAME}?start=shop" for row in g_kb.inline_keyboard for btn in row)
+
+    # 2. PM /boost by Admin
+    pm_up = MagicMock()
+    pm_up.effective_chat.type = "private"
+    pm_up.effective_chat.id = 7651553630
+    pm_up.effective_user.id = 7651553630
+    pm_up.effective_user.username = "rasuljonovv_a"
+    pm_up.message = MagicMock()
+    pm_up.message.reply_text = AsyncMock()
+    pm_up.effective_message = pm_up.message
+
+    await boost_cmd(pm_up, mock_context)
+    assert pm_up.message.reply_text.called
+    pm_kb = pm_up.message.reply_text.call_args[1]["reply_markup"]
+    assert any(btn.callback_data == "shop_gold" for row in pm_kb.inline_keyboard for btn in row)
+    assert any(btn.callback_data == "adm:menu" for row in pm_kb.inline_keyboard for btn in row)
+
+@pytest.mark.asyncio
+async def test_group_callbacks_privacy_protection():
+    """Verify that shop and admin callbacks are strictly rejected if executed inside groups."""
+    mock_context = MagicMock()
+
+    # 1. Shop callback inside a group
+    shop_q_up = MagicMock()
+    shop_q_up.effective_chat.type = "supergroup"
+    shop_q_up.effective_chat.id = -100444
+    shop_q_up.callback_query = MagicMock()
+    shop_q_up.callback_query.data = "shop_items"
+    shop_q_up.callback_query.answer = AsyncMock()
+    shop_q_up.callback_query.edit_message_text = AsyncMock()
+
+    await shop_callback_handler(shop_q_up, mock_context)
+    assert shop_q_up.callback_query.answer.called
+    assert "shaxsiy chatida ishlaydi" in shop_q_up.callback_query.answer.call_args[0][0]
+    assert not shop_q_up.callback_query.edit_message_text.called, "Must NOT leak inventory in group"
+
+    # 2. Admin callback inside a group
+    adm_q_up = MagicMock()
+    adm_q_up.effective_chat.type = "supergroup"
+    adm_q_up.effective_chat.id = -100444
+    adm_q_up.callback_query = MagicMock()
+    adm_q_up.callback_query.data = "adm:menu"
+    adm_q_up.callback_query.answer = AsyncMock()
+    adm_q_up.callback_query.edit_message_text = AsyncMock()
+    adm_q_up.effective_user.id = 7651553630
+    adm_q_up.effective_user.username = "rasuljonovv_a"
+
+    res = await handle_admin_callback(adm_q_up, mock_context)
+    assert res is True
+    assert adm_q_up.callback_query.answer.called
+    assert "shaxsiy chatida amalga oshiriladi" in adm_q_up.callback_query.answer.call_args[0][0]
+    assert not adm_q_up.callback_query.edit_message_text.called, "Must NOT leak admin panel in group"
+
 @pytest.mark.asyncio
 async def test_visual_elements_and_animated_dice():
     """Verify custom animated emojis and safe dispatching of 3D animated dice."""
@@ -266,9 +404,12 @@ async def test_visual_elements_and_animated_dice():
     assert "<tg-emoji" in anim_emoji("moon")
     assert "<tg-emoji" in anim_emoji("crown")
     assert "<tg-emoji" in anim_emoji("gem")
+    assert "<tg-emoji" in anim_emoji("🌙")
+    assert "<tg-emoji" in anim_emoji("👑")
 
     mock_bot = MagicMock()
     mock_bot.send_dice = AsyncMock()
+    mock_bot.send_sticker = AsyncMock()
 
     res = await send_animated_dice_effect(mock_bot, 123456, emoji="🎯")
     assert mock_bot.send_dice.called
@@ -279,6 +420,47 @@ async def test_visual_elements_and_animated_dice():
     failing_bot.send_dice = AsyncMock(side_effect=Exception("API Network Error"))
     res_err = await send_animated_dice_effect(failing_bot, 123456, emoji="🎲")
     assert res_err is None, "Function should catch exception gracefully"
+
+    # Animated sticker dispatcher check
+    res_stk = await send_animated_sticker(mock_bot, 123456, sticker="test_sticker_id")
+    assert mock_bot.send_sticker.called
+
+    # Badge animated formatting check
+    adm_badge = format_badge_with_anim_emoji("👑 Bosh Admin")
+    assert "<tg-emoji" in adm_badge
+    assert "👑" in adm_badge
+    assert "Bosh Admin" in adm_badge
+
+    lightning_badge = format_badge_with_anim_emoji("⚡ Yashin belgisi")
+    assert "<tg-emoji" in lightning_badge
+
+    # Player title formatting in HTML lobby check
+    title = format_player_title_html({"names": {1: "PlayerOne"}, "badges": {1: "👑 Qirol Toji"}}, 1)
+    assert "<tg-emoji" in title
+    assert "PlayerOne" in title
+
+    # Strip tags check
+    raw_text = "<tg-emoji emoji-id=\"123\">🌙</tg-emoji> Kechasi"
+    clean = strip_anim_emoji_tags(raw_text)
+    assert clean == "🌙 Kechasi"
+
+@pytest.mark.asyncio
+async def test_atmospheric_message_animated_dice_trigger():
+    """Verify send_atmospheric_message triggers 3D physics dice for night and execution."""
+    mock_bot = MagicMock()
+    mock_bot.send_message = AsyncMock()
+    mock_bot.send_dice = AsyncMock()
+
+    # Night trigger
+    await send_atmospheric_message(mock_bot, 123456, "Tun kirdi", sound_type="night")
+    assert mock_bot.send_dice.called
+    assert mock_bot.send_dice.call_args[1]["emoji"] == "🎲"
+
+    # Execution trigger
+    mock_bot.send_dice.reset_mock()
+    await send_atmospheric_message(mock_bot, 123456, "Qatl bo'ldi", sound_type="execution")
+    assert mock_bot.send_dice.called
+    assert mock_bot.send_dice.call_args[1]["emoji"] == "🎯"
 
 @pytest.mark.asyncio
 async def test_edge_cases_and_none_handling():
@@ -301,6 +483,10 @@ async def test_edge_cases_and_none_handling():
     await clan_cmd(none_user_up, mock_context)
     await admin_cmd(none_user_up, mock_context)
     await stats_cmd(none_user_up, mock_context)
+    await plan_cmd(none_user_up, mock_context)
+    await boost_cmd(none_user_up, mock_context)
+    await mypara_cmd(none_user_up, mock_context)
+    await mybro_cmd(none_user_up, mock_context)
     assert not none_user_up.message.reply_text.called
 
     # 2. Non-admin accessing /start admin in PM
@@ -350,4 +536,3 @@ async def test_create_bot_app_registers_all_handlers():
     expected = {"start", "game", "admin", "stats", "profile", "balance", "will", "shop", "guide", "rating", "clan", "boost"}
     for cmd in expected:
         assert cmd in registered_cmds, f"Handler for /{cmd} must be registered in bot app"
-
