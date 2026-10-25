@@ -193,13 +193,37 @@ def start_health_server(port: int = 8000):
         server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        log.info("Health check HTTP server running on port %d (24/7 Koyeb/Cloud ready)", port)
+        log.info("Health check HTTP server running on port %d (24/7 Koyeb/Render ready)", port)
     except Exception as e:
         log.warning("Could not start health check HTTP server on port %d: %s", port, e)
+
+import urllib.request
+import time
+
+def start_render_keep_alive():
+    """If running on Render (RENDER_EXTERNAL_URL is set), ping itself every 10 min to prevent sleep."""
+    url = os.getenv("RENDER_EXTERNAL_URL")
+    if not url:
+        return
+    def ping_loop():
+        log.info("Render auto keep-alive active for %s (anti-sleep)", url)
+        time.sleep(60)
+        while True:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "RenderAntiSleep/1.0"})
+                with urllib.request.urlopen(req, timeout=15):
+                    pass
+            except Exception as e:
+                log.debug("Keep-alive ping to %s: %s", url, e)
+            time.sleep(600)  # Ping every 10 minutes (Render free idle sleep is 15 minutes)
+
+    t = threading.Thread(target=ping_loop, daemon=True)
+    t.start()
 
 def main():
     port = int(os.getenv("PORT", "8000") or 8000)
     start_health_server(port)
+    start_render_keep_alive()
     log.info("Starting Telegram Mafia Bot...")
     app = create_bot_app()
     app.run_polling(allowed_updates=Update.ALL_TYPES, bootstrap_retries=5)
