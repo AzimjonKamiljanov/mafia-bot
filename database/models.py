@@ -22,9 +22,10 @@ def is_admin(user_id: int, username: str = "") -> bool:
 async def ensure_user(user) -> Dict[str, Any]:
     """Ensure user exists in users table and inventory is prepared."""
     db = await get_db()
-    uid = user.id
-    name = (user.full_name or user.first_name or "O'yinchi")[:100]
-    username = user.username or ""
+    uid = int(user.id)
+    raw_name = getattr(user, "full_name", None) or getattr(user, "first_name", None) or "O'yinchi"
+    name = str(raw_name)[:100]
+    username = str(getattr(user, "username", "") or "")
     now = now_iso()
 
     async with db.execute("SELECT * FROM users WHERE user_id = ?", (uid,)) as cursor:

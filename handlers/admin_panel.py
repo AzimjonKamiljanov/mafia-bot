@@ -4,13 +4,14 @@ from typing import Dict, Any, List
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import ADMIN_IDS, ROLES
+from config import ADMIN_IDS, ROLES, BOT_USERNAME
 from database.db import get_db
 from database.models import (
     is_admin, get_user, change_balance, get_badge, set_badge,
     get_all_bot_configs, set_bot_config
 )
 from core.engine import games, lobbies, cancel_game_timer, cancel_lobby_timer
+from core.visuals import anim_emoji
 
 log = logging.getLogger("detektiv.handlers.admin_panel")
 
@@ -34,10 +35,36 @@ def admin_main_keyboard() -> InlineKeyboardMarkup:
     ])
 
 async def admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
     user = update.effective_user
-    if not user or not is_admin(user.id, user.username):
-        if update.message:
-            await update.message.reply_text("⛔ Ushbu buyruq faqat Bot Super Adminlari uchun ruxsat etilgan.")
+    msg = update.message or update.effective_message
+    if not user:
+        return
+
+    adm = is_admin(user.id, getattr(user, "username", ""))
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+
+    if is_group:
+        if not adm:
+            # Non-admins receive no access inside group chats
+            return
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=admin"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        if msg:
+            await msg.reply_text(
+                "👑 <b>Master Admin Paneli</b>\n\n"
+                "Xavfsizlik va maxfiylikni ta'minlash maqsadida admin boshqaruv paneli guruhda ochilmaydi. "
+                "Iltimos, botning shaxsiy chatiga o'ting:",
+                reply_markup=kb,
+                parse_mode="HTML"
+            )
+        return
+
+    if not adm:
+        if msg:
+            await msg.reply_text("⛔ Ushbu buyruq faqat Bot Super Adminlari uchun ruxsat etilgan.")
         return
 
     db = await get_db()
@@ -46,8 +73,9 @@ async def admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async with db.execute("SELECT COUNT(*) AS c FROM game_history") as cur:
         total_games = (await cur.fetchone())["c"]
 
+    crown = anim_emoji("crown", "👑")
     text = (
-        "👑 <b>MASTER ADMIN BOSHQARUV PANELI</b>\n\n"
+        f"{crown} <b>MASTER ADMIN BOSHQARUV PANELI</b>\n\n"
         f"🌟 <b>Hurmatli Bosh Administrator:</b> {html.escape(user.full_name or user.first_name)}\n"
         f"🆔 Sizning ID: <code>{user.id}</code>\n\n"
         "📊 <b>Umumiy ko'rsatkichlar:</b>\n"
@@ -60,11 +88,71 @@ async def admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Masalan: «tun vaqtini 30 qil», «7651553630 ga 1000 coin ber», «Sherif rolini o'chir» va hokazo.</i>"
     )
 
-    await update.message.reply_text(
-        text=text,
-        reply_markup=admin_main_keyboard(),
-        parse_mode="HTML"
+    if msg:
+        await msg.reply_text(
+            text,
+            reply_markup=admin_main_keyboard(),
+            parse_mode="HTML"
+        )
+
+async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    user = update.effective_user
+    msg = update.message or update.effective_message
+    if not user or not msg:
+        return
+
+    adm = is_admin(user.id, getattr(user, "username", ""))
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+
+    if is_group:
+        if not adm:
+            return
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=stats"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            "📊 <b>Tizim Statistikasi</b>\n\nStatistikani ko'rish uchun botning shaxsiy chatiga o'ting:",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
+    db = await get_db()
+    async with db.execute("SELECT COUNT(*) AS c FROM users") as cur:
+        users_count = (await cur.fetchone())["c"]
+    async with db.execute("SELECT COUNT(*) AS c FROM game_history") as cur:
+        games_count = (await cur.fetchone())["c"]
+
+    if not adm:
+        text = (
+            "📊 <b>DETEKTIV MAFIA STATISTIKASI</b>\n\n"
+            f"• 👤 Jami o'yinchilar: <b>{users_count} ta</b>\n"
+            f"• 🏆 O'ynalgan o'yinlar: <b>{games_count} ta</b>\n"
+            f"• 🎮 Faol o'yinlar: <b>{len(games)} ta</b>\n"
+        )
+        await msg.reply_text(text, parse_mode="HTML")
+        return
+
+    async with db.execute("SELECT COUNT(*) AS c FROM clans") as cur:
+        clans_count = (await cur.fetchone())["c"]
+    async with db.execute("SELECT COUNT(*) AS c FROM group_users") as cur:
+        tracked_members = (await cur.fetchone())["c"]
+
+    text = (
+        "📊 <b>BATAFSIL TIZIM STATISTIKASI</b>\n\n"
+        f"• 👤 Ro'yxatdan o'tganlar: <b>{users_count} ta</b>\n"
+        f"• 👥 Guruh a'zolari bazasi: <b>{tracked_members} ta</b>\n"
+        f"• 🛡️ Mafiya klanlari: <b>{clans_count} ta</b>\n"
+        f"• 🏆 O'ynalgan o'yinlar: <b>{games_count} ta</b>\n"
+        f"• 🎮 Hozir o'ynalayotgan o'yinlar: <b>{len(games)} ta</b>\n"
+        f"• 🚪 Ochiq o'yin lobbilari: <b>{len(lobbies)} ta</b>\n\n"
+        "⚡ <b>Server holati:</b> Barqaror (Online)\n"
+        "🟢 <b>Ma'lumotlar bazasi:</b> WAL rejimida aiosqlite"
     )
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("👑 Admin paneli", callback_data="adm:menu")]])
+    await msg.reply_text(text, reply_markup=kb, parse_mode="HTML")
 
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     q = update.callback_query

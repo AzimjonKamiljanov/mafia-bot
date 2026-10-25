@@ -2,7 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import COIN_SHOP, GOLD_SHOP
+from config import COIN_SHOP, GOLD_SHOP, BOT_USERNAME
 from database.models import (
     ensure_user, get_user, change_balance, get_inventory, add_item,
     get_badge, set_badge, deactivate_badge, get_owned_badges, save_owned_badge, is_admin
@@ -20,16 +20,32 @@ def shop_main_keyboard() -> InlineKeyboardMarkup:
 
 async def shop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if not user:
+    chat = update.effective_chat
+    msg = update.message or update.effective_message
+    if not user or not msg:
         return
     await ensure_user(user)
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=shop"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            "🛍️ <b>Detektiv Do'koni</b>\n\n"
+            "Buyumlar xarid qilish va inventarni boshqarish faqat botning shaxsiy chatida amalga oshiriladi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
 
     text = (
         "🛍️ *Detektiv Do'koni (Shop)*\n\n"
         "O'yinda ustunlik beruvchi maxsus buyumlar, himoyalar va nufuzli unvonlar (Badges).\n\n"
         "Kerakli bo'limni tanlang:"
     )
-    await update.message.reply_text(text, reply_markup=shop_main_keyboard(), parse_mode="Markdown")
+    await msg.reply_text(text, reply_markup=shop_main_keyboard(), parse_mode="Markdown")
 
 async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query

@@ -15,6 +15,7 @@ from core.will import fetch_player_will, format_will_announcement
 from core.graveyard import graveyard_menu_keyboard, graveyard_status_text
 from core.audio_effects import send_atmospheric_message
 from core.navigation import bot_action_button
+from core.visuals import send_animated_dice_effect
 
 log = logging.getLogger("detektiv.phases.verdict")
 
@@ -247,6 +248,7 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         lines.append(f"\n🕊️ *SHAHAR AVF ETDI:* *{accused_name}* omon qoldi va o'yin davom etadi.")
 
     sound_marker = "execution" if (kill_weight > forgive_weight) else "saved"
+    await send_animated_dice_effect(context.bot, chat_id, emoji="🎯" if sound_marker == "execution" else "🎲")
     await send_atmospheric_message(
         bot=context.bot,
         chat_id=chat_id,

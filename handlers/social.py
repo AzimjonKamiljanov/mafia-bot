@@ -221,6 +221,12 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🎁 Gold olish (1 dona)", callback_data=f"claim_gold:{drop_id}")]
     ])
 
+    try:
+        from core.visuals import send_animated_dice_effect
+        await send_animated_dice_effect(context.bot, chat.id, emoji="🎲")
+    except Exception as e:
+        log.debug("Gold drop dice error: %s", e)
+
     sent_msg = await context.bot.send_message(
         chat_id=chat.id,
         text=text,

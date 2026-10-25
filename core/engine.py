@@ -285,6 +285,12 @@ async def finish_game(
     ])
 
     try:
+        from core.visuals import send_animated_dice_effect
+        await send_animated_dice_effect(context.bot, chat_id, emoji="🎯" if winning_team == "blue" else "🎲")
+    except Exception as e:
+        log.debug("Victory animated dice effect error: %s", e)
+
+    try:
         await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_kb)
     except Exception as e:
         log.warning("Could not send finish game text: %s", e)

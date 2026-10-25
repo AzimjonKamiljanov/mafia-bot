@@ -1,11 +1,14 @@
 import logging
 import asyncio
-from telegram import Update, BotCommand
+from telegram import (
+    Update, BotCommand, BotCommandScopeAllGroupChats,
+    BotCommandScopeAllPrivateChats, BotCommandScopeChat, BotCommandScopeDefault
+)
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler, ChatMemberHandler, filters, ContextTypes
 )
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, ADMIN_IDS
 from database.db import init_db, close_db
 from database.models import ensure_user, track_group_member
 from handlers import (
@@ -13,7 +16,7 @@ from handlers import (
     stop_cmd, chiqish_cmd, reveal_cmd, shop_cmd, clan_cmd, newclan_cmd,
     para_cmd, dpara_cmd, mypara_cmd, bro_cmd, dbro_cmd, mybro_cmd,
     givegul_cmd, send_cmd, coin_cmd, gold_cmd, givecoin_cmd, givegold_cmd,
-    call_players_cmd, callback_router, plan_cmd, boost_cmd, settings_cmd, admin_cmd
+    call_players_cmd, callback_router, plan_cmd, boost_cmd, settings_cmd, admin_cmd, stats_cmd
 )
 from phases.lobby import create_lobby
 
@@ -108,35 +111,60 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
             return
 
 async def post_init(app: Application):
-    """Initialize DB and configure Telegram Bot commands list."""
+    """Initialize DB and configure Telegram Bot commands list with strict scopes."""
     await init_db()
     try:
-        await app.bot.set_my_commands([
-            BotCommand("start", "Botni ishga tushirish"),
-            BotCommand("salom", "Salomlashish va profil havolasi"),
+        # 1. Group commands scope: Only group game commands
+        group_commands = [
             BotCommand("game", "Guruhda Mafia o'yinini ochish"),
+            BotCommand("startgame", "O'yinni boshlash"),
             BotCommand("call", "O'yinchilarni chaqirish"),
-            BotCommand("will", "So'nggi Vasiyatnoma yozish"),
-            BotCommand("reveal", "Merlikni e'lon qilish (Mer)"),
-            BotCommand("shop", "Do'kon (Shop)"),
+            BotCommand("settings", "O'yin sozlamalari"),
+            BotCommand("salom", "Salomlashish va profil havolasi"),
+            BotCommand("stop", "O'yinni to'xtatish"),
+            BotCommand("chiqish", "Lobbyni tark etish"),
+            BotCommand("para", "Juftlik tuzish (Reply)"),
+            BotCommand("bro", "Birodarlik rishtasi (Reply)"),
+            BotCommand("send", "Guruhga Gold Drop tashlash"),
+        ]
+        await app.bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
+
+        # 2. Private chats scope: Personal commands
+        private_commands = [
+            BotCommand("start", "Botni ishga tushirish"),
             BotCommand("profile", "Mening profilim"),
             BotCommand("balance", "Balans"),
+            BotCommand("will", "So'nggi Vasiyatnoma yozish"),
+            BotCommand("shop", "Do'kon (Shop)"),
             BotCommand("rating", "TOP reyting"),
             BotCommand("guide", "Rollar qo'llanmasi"),
             BotCommand("clan", "Mafiya oilasi / klan"),
-            BotCommand("stop", "O'yinni to'xtatish"),
-            BotCommand("chiqish", "Lobbyni tark etish"),
-            BotCommand("settings", "O'yin sozlamalari"),
-            BotCommand("plan", "O'yin mexanikasi va rejasi"),
-            BotCommand("boost", "Telegram Premium va Boost"),
+            BotCommand("salom", "Salomlashish"),
+        ]
+        await app.bot.set_my_commands(private_commands, scope=BotCommandScopeAllPrivateChats())
+
+        # 3. Admin scope: Admin command set including /admin, /settings, /stats, /plan and full controls in private chat
+        admin_commands = [
             BotCommand("admin", "Master Admin paneli"),
-            BotCommand("para", "Juftlik tuzish (Reply)"),
-            BotCommand("bro", "Birodarlik rishtasi (Reply)"),
-            BotCommand("send", "Guruhga Gold Drop tashlash (/send 10)"),
-            BotCommand("coin", "Tangalar o'tkazish (Reply /coin 500)"),
-            BotCommand("gold", "Oltin o'tkazish (Reply /gold 5)"),
-        ])
-        log.info("Bot commands successfully registered with Telegram.")
+            BotCommand("settings", "O'yin sozlamalari"),
+            BotCommand("stats", "Tizim statistikasi"),
+            BotCommand("plan", "O'yin mexanikasi va rejasi"),
+            BotCommand("start", "Botni ishga tushirish"),
+            BotCommand("profile", "Admin profili"),
+            BotCommand("balance", "Admin balansi"),
+            BotCommand("shop", "Do'kon"),
+            BotCommand("guide", "Rollar qo'llanmasi"),
+            BotCommand("rating", "TOP reyting"),
+            BotCommand("boost", "Telegram Premium va Boost"),
+        ]
+        for aid in ADMIN_IDS:
+            if aid:
+                try:
+                    await app.bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=aid))
+                except Exception as e:
+                    log.warning("Could not set admin commands for chat %s: %s", aid, e)
+
+        log.info("Bot commands successfully registered with strict Telegram scopes.")
     except Exception as e:
         log.warning("Could not set bot commands: %s", e)
 
@@ -175,6 +203,7 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("shop", shop_cmd))
     app.add_handler(CommandHandler("clan", clan_cmd))
     app.add_handler(CommandHandler("newclan", newclan_cmd))
+    app.add_handler(CommandHandler(["stats", "statistika"], stats_cmd))
 
     # Social commands
     app.add_handler(CommandHandler("para", para_cmd))

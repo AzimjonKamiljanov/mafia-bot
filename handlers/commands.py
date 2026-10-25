@@ -4,7 +4,7 @@ from typing import Optional
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import ADMIN_ID, ROLES
+from config import ADMIN_ID, ROLES, BOT_USERNAME
 from database.models import (
     ensure_user, get_user, get_balance, change_balance, get_badge,
     get_top_players, is_admin, get_will, set_will, track_group_member
@@ -15,6 +15,7 @@ from core.engine import (
 )
 from phases.lobby import create_lobby, lobby_text, lobby_keyboard
 from core.will import save_player_will, format_will_announcement
+from core.visuals import anim_emoji
 
 log = logging.getLogger("detektiv.handlers.commands")
 
@@ -244,6 +245,37 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return
             except Exception as e:
                 log.warning("Act deep link error: %s", e)
+        elif arg == "profile":
+            await profile_cmd(update, context)
+            return
+        elif arg == "balance":
+            await balance_cmd(update, context)
+            return
+        elif arg == "will":
+            await will_cmd(update, context)
+            return
+        elif arg == "shop":
+            from handlers.shop import shop_cmd
+            await shop_cmd(update, context)
+            return
+        elif arg == "guide":
+            await guide_cmd(update, context)
+            return
+        elif arg == "rating":
+            await rating_cmd(update, context)
+            return
+        elif arg == "clan":
+            from handlers.clans import clan_cmd
+            await clan_cmd(update, context)
+            return
+        elif arg == "admin":
+            from handlers.admin_panel import admin_cmd
+            await admin_cmd(update, context)
+            return
+        elif arg == "stats":
+            from handlers.admin_panel import stats_cmd
+            await stats_cmd(update, context)
+            return
 
     welcome_text = (
         "🎭 *Detektiv Mafia Botiga Xush Kelibsiz!*\n\n"
@@ -309,91 +341,179 @@ async def startgame_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    msg = update.effective_message
+    chat = update.effective_chat
+    msg = update.effective_message or update.message
     if not user or not msg:
         return
     await ensure_user(user)
 
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=will"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            f"📜 <b>Maxfiy Vasiyatnoma</b>\n\n"
+            f"Hurmatli {html.escape(user.first_name)}, vasiyatingiz sir tutilishi uchun "
+            f"uni faqat botning shaxsiy chatida yozing va ko'ring.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
+    scroll = anim_emoji("scroll", "📜")
     if not context.args:
         current_will = await get_will(user.id)
         if current_will:
             await msg.reply_text(
-                f"📜 *Sizning amaldagi Vasiyatnomangiz:*\n\n"
-                f"> _{current_will}_\n\n"
-                f"Yangi vasiyat yozish uchun: `/will <matn>`",
-                parse_mode="Markdown"
+                f"{scroll} <b>Sizning amaldagi Vasiyatnomangiz:</b>\n\n"
+                f"<blockquote>{html.escape(current_will)}</blockquote>\n\n"
+                f"Yangi vasiyat yozish uchun: <code>/will &lt;matn&gt;</code>",
+                parse_mode="HTML"
             )
         else:
             await msg.reply_text(
-                "📜 *Sizda hali Vasiyatnoma yo'q!*\n\n"
+                f"{scroll} <b>Sizda hali Vasiyatnoma yo'q!</b>\n\n"
                 "Tunda yoki kunduzi o'ldirilganingizda butun shaharga sirli ma'lumot qoldirish uchun:\n"
-                "`/will Mening vasiyatim shu...` buyrug'idan foydalaning.",
-                parse_mode="Markdown"
+                "<code>/will Mening vasiyatim shu...</code> buyrug'idan foydalaning.",
+                parse_mode="HTML"
             )
         return
 
     text = " ".join(context.args)
     await save_player_will(user.id, text)
     await msg.reply_text(
-        "✅ *Vasiyatnomangiz muvaffaqiyatli saqlandi!*\n"
+        "✅ <b>Vasiyatnomangiz muvaffaqiyatli saqlandi!</b>\n"
         "Agar o'yinda halok bo'lsangiz, ushbu xabar shahar ahlisiga e'lon qilinadi.",
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat = update.effective_chat
     msg = update.message or update.effective_message
     if not user or not msg:
         return
     u = await ensure_user(user)
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=profile"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            f"🔒 <b>Hurmatli {html.escape(user.first_name)}!</b>\n\n"
+            f"Shaxsiy profilingiz, balansingiz va yutuqlaringiz maxfiyligini saqlash uchun "
+            f"profil ma'lumotlari faqat botning shaxsiy chatida ko'rsatiladi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
     badge = await get_badge(user.id) or "Yo'q"
-    admin_tag = " (Admin)" if is_admin(user.id) else ""
+    admin_tag = " (Admin)" if is_admin(user.id, getattr(user, "username", "")) else ""
 
     text = (
-        f"👤 *Profil:* *{u['name']}*{admin_tag}\n\n"
-        f"🪙 Tangalar: *{'∞' if is_admin(user.id) else u['coin']}*\n"
-        f"🥇 Oltin: *{'∞' if is_admin(user.id) else u['gold']}*\n"
-        f"🎮 Jami o'yinlar: *{u['games']}*\n"
-        f"🏆 G'alabalar: *{u['wins']}*\n"
-        f"❌ Mag'lubiyatlar: *{u['losses']}*\n"
-        f"🎖️ Faol belgi: *{badge}*"
+        f"<tg-emoji emoji-id=\"5463134628678688463\">👤</tg-emoji> <b>Profil:</b> <b>{html.escape(u['name'])}</b>{admin_tag}\n\n"
+        f"<tg-emoji emoji-id=\"5429462837318049280\">🪙</tg-emoji> Tangalar: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['coin']}</b>\n"
+        f"<tg-emoji emoji-id=\"5429462837318049280\">🥇</tg-emoji> Oltin: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['gold']}</b>\n"
+        f"🎮 Jami o'yinlar: <b>{u['games']}</b>\n"
+        f"<tg-emoji emoji-id=\"5368324170671202286\">🏆</tg-emoji> G'alabalar: <b>{u['wins']}</b>\n"
+        f"❌ Mag'lubiyatlar: <b>{u['losses']}</b>\n"
+        f"<tg-emoji emoji-id=\"5370845348392576392\">🎖️</tg-emoji> Faol belgi: <b>{html.escape(badge)}</b>"
     )
-    await msg.reply_text(text, parse_mode="Markdown")
+    await msg.reply_text(text, parse_mode="HTML")
 
 async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat = update.effective_chat
     msg = update.message or update.effective_message
     if not user or not msg:
         return
     u = await ensure_user(user)
-    coins = "Cheksiz ∞" if is_admin(user.id) else str(u['coin'])
-    gold = "Cheksiz ∞" if is_admin(user.id) else str(u['gold'])
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=balance"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            f"🔒 <b>Hurmatli {html.escape(user.first_name)}!</b>\n\n"
+            f"Mablag'laringiz xavfsizligi va maxfiyligi uchun balansingiz "
+            f"faqat botning o'zida shaxsiy ko'rsatiladi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
+    coins = "Cheksiz ∞" if is_admin(user.id, getattr(user, "username", "")) else str(u['coin'])
+    gold = "Cheksiz ∞" if is_admin(user.id, getattr(user, "username", "")) else str(u['gold'])
     await msg.reply_text(
-        f"💰 *Sizning balansingiz:*\n\n"
-        f"🪙 Tangalar: *{coins} Coin*\n"
-        f"🥇 Oltinlar: *{gold} Gold*",
-        parse_mode="Markdown"
+        f"<tg-emoji emoji-id=\"5429462837318049280\">💰</tg-emoji> <b>Sizning balansingiz:</b>\n\n"
+        f"<tg-emoji emoji-id=\"5429462837318049280\">🪙</tg-emoji> Tangalar: <b>{coins} Coin</b>\n"
+        f"<tg-emoji emoji-id=\"5429462837318049280\">🥇</tg-emoji> Oltinlar: <b>{gold} Gold</b>",
+        parse_mode="HTML"
     )
 
 async def rating_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
     msg = update.message or update.effective_message
+    user = update.effective_user
     if not msg:
         return
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=rating"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        fname = html.escape(user.first_name) if user else "Foydalanuvchi"
+        await msg.reply_text(
+            f"🏆 <b>Top Detektivlar Reytingi</b>\n\n"
+            f"Hurmatli {fname}, yetakchi detektivlar ro'yxatini botning shaxsiy chatida ko'ring:",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
     top = await get_top_players(15)
     lines = [
-        "🏆 *Top 15 Detektivlar:*",
+        f"{anim_emoji('trophy', '🏆')} <b>Top 15 Detektivlar:</b>",
         ""
     ]
     for i, p in enumerate(top, 1):
         medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-        lines.append(f"{medal} *{p['name']}* — {p['wins']} g'alaba ({p['coin']} 🪙)")
-    await msg.reply_text("\n".join(lines), parse_mode="Markdown")
+        lines.append(f"{medal} <b>{html.escape(p['name'])}</b> — {p['wins']} g'alaba ({p['coin']} 🪙)")
+    await msg.reply_text("\n".join(lines), parse_mode="HTML")
 
 async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    from roles.dossier import format_role_dossier, ROLE_DOSSIERS
+    chat = update.effective_chat
     msg = update.message or update.effective_message
+    user = update.effective_user
     if not msg:
         return
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=guide"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        fname = html.escape(user.first_name) if user else "Foydalanuvchi"
+        await msg.reply_text(
+            f"📖 <b>Rollar va Qoidalar Qo'llanmasi</b>\n\n"
+            f"Hurmatli {fname}, barcha 24+ rollar, taktikalar va yo'riqnomalar bilan "
+            f"botning shaxsiy chatida batafsil tanishing:",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
+
+    from roles.dossier import format_role_dossier, ROLE_DOSSIERS
     if context.args and len(context.args) > 0:
         query = " ".join(context.args).strip().lower()
         matched = None
@@ -559,7 +679,6 @@ async def salom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎮 <b>Asosiy buyruqlar:</b>\n"
         f"• <code>/game</code> — Guruhda yangi Mafia o'yinini ochish\n"
         f"• <code>/call</code> — Barcha o'yinchilarni o'yinga chaqirish\n"
-        f"• <code>/profile</code> — O'z darajangiz va statusingiz\n"
         f"• <code>/settings</code> — Guruh sozlamalari (vaqt va rollar)"
     )
 
@@ -612,23 +731,27 @@ async def plan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(plan_text, reply_markup=plan_kb, parse_mode="HTML")
 
 async def boost_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    chat = update.effective_chat
     boost_text = (
-        "🚀 <b>TELEGRAM PREMIUM & GURUHNI BOOST QILISH</b>\n\n"
-        "💎 <b>Detektiv Mafia loyihasini qo'llab-quvvatlang!</b>\n\n"
+        f"{anim_emoji('rocket', '🚀')} <b>TELEGRAM PREMIUM & GURUHNI BOOST QILISH</b>\n\n"
+        f"{anim_emoji('gem', '💎')} <b>Detektiv Mafia loyihasini qo'llab-quvvatlang!</b>\n\n"
         "Guruhimiz yoki botimizni Telegram Premium orqali <b>Boost</b> qilgan o'yinchilarga maxsus imtiyozlar beriladi:\n\n"
         "✨ <b>Premium & Booster Imtiyozlari:</b>\n"
-        "• 👑 <b>Eksklyuziv VIP Nishonlar:</b> Ismingiz yonida porlab turuvchi animatsiyali emojilar!\n"
-        "• 💰 <b>2x Bonus:</b> O'yinlarda g'alaba uchun 2 barobar ko'proq Coin va Gold yutuqlari.\n"
-        "• 🎭 <b>Yangi Rollarga Erta Kirish:</b> Sinovdagi yangi rollar birinchi sizga beriladi.\n"
-        "• 🛡️ <b>Sindikat Imtiyozi:</b> Klan ochish va rivojlantirishda 50% chegirma.\n\n"
+        f"• {anim_emoji('crown', '👑')} <b>Eksklyuziv VIP Nishonlar:</b> Ismingiz yonida porlab turuvchi animatsiyali emojilar!\n"
+        f"• {anim_emoji('coin', '💰')} <b>2x Bonus:</b> O'yinlarda g'alaba uchun 2 barobar ko'proq Coin va Gold yutuqlari.\n"
+        f"• {anim_emoji('detective', '🎭')} <b>Yangi Rollarga Erta Kirish:</b> Sinovdagi yangi rollar birinchi sizga beriladi.\n"
+        f"• {anim_emoji('shield', '🛡️')} <b>Sindikat Imtiyozi:</b> Klan ochish va rivojlantirishda 50% chegirma.\n\n"
         "Guruhga boost berish uchun guruh profiliga kiring va <b>«Boost Group»</b> tugmasini bosing! 🔥✨"
     )
-    boost_kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("💎 VIP Do'kon", callback_data="shop:category:badges"),
-            InlineKeyboardButton("👑 Master Admin Paneli", callback_data="adm:menu")
-        ]
-    ])
+    adm = is_admin(user.id, getattr(user, "username", "")) if user else False
+    is_pm = bool(chat and getattr(chat, "type", "") == "private")
+
+    buttons = [[InlineKeyboardButton("💎 VIP Do'kon", callback_data="shop:category:badges")]]
+    if adm and is_pm:
+        buttons[0].append(InlineKeyboardButton("👑 Master Admin Paneli", callback_data="adm:menu"))
+
+    boost_kb = InlineKeyboardMarkup(buttons)
     await update.message.reply_text(boost_text, reply_markup=boost_kb, parse_mode="HTML")
 
 

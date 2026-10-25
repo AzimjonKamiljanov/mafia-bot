@@ -1,7 +1,9 @@
+import html
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
+from config import BOT_USERNAME
 from database.models import (
     ensure_user, get_user_clan, create_clan, change_balance
 )
@@ -10,10 +12,25 @@ log = logging.getLogger("detektiv.handlers.clans")
 
 async def clan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat = update.effective_chat
     msg = update.message or update.effective_message
     if not user or not msg:
         return
     await ensure_user(user)
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=clan"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            "⚔️ <b>Mafiya Sindikati (Klanlar)</b>\n\n"
+            "Klaningiz ma'lumotlarini botning shaxsiy chatida ko'ring:",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
 
     clan = await get_user_clan(user.id)
     if not clan:
@@ -38,10 +55,25 @@ async def clan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def newclan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat = update.effective_chat
     msg = update.message or update.effective_message
     if not user or not msg:
         return
     await ensure_user(user)
+
+    is_group = bool(chat and getattr(chat, "type", "") in ("group", "supergroup"))
+    if is_group:
+        pm_link = f"https://t.me/{BOT_USERNAME}?start=clan"
+        kb = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💬 Botda ko'rish (Shaxsiy)", url=pm_link)
+        ]])
+        await msg.reply_text(
+            "⚔️ <b>Mafiya Sindikati (Klanlar)</b>\n\n"
+            "Klan tuzish va boshqarish faqat botning shaxsiy chatida amalga oshiriladi.",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+        return
 
     existing = await get_user_clan(user.id)
     if existing:

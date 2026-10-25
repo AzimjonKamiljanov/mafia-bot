@@ -3,7 +3,7 @@ from .commands import (
     call_players_cmd, plan_cmd, boost_cmd
 )
 from .settings import settings_cmd
-from .admin_panel import admin_cmd
+from .admin_panel import admin_cmd, stats_cmd
 from .admin_ai import process_admin_ai_message
 from .shop import shop_cmd, shop_callback_handler
 from .clans import clan_cmd, newclan_cmd
