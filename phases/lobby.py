@@ -347,6 +347,7 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         "kill_targets": {},
         "protected": set(),
         "protected_by": {},
+        "self_protect_used": set(),
         "doctor_self_heal_used": {},
         "blocked_roles": {},
         "tourist_targets": {},

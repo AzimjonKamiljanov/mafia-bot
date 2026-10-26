@@ -50,9 +50,23 @@ def get_role_action_buttons(game: Dict[str, Any], uid: int) -> Optional[InlineKe
                 InlineKeyboardButton("🔎 Shaxsni tekshirish", callback_data=f"act:detective:{uid}"),
                 InlineKeyboardButton("🔫 Shubhali shaxsni otish", callback_data=f"act:detective_shoot:{uid}")
             ])
+        # Note: While Detektiv is alive, Sherif has NO active abilities
+    elif role in ("Bo'ri", "Bori"):
+        boss_alive = any(
+            game["alive"].get(u, False) and game["roles"].get(u) == "Boshliq"
+            for u in game.get("players", [])
+        )
+        killer_alive = any(
+            game["alive"].get(u, False) and game["roles"].get(u) == "Qotil"
+            for u in game.get("players", [])
+        )
+        if not boss_alive and not killer_alive:
+            buttons.append([
+                InlineKeyboardButton("🐺 Ovga chiqish (Boshliqsiz)", callback_data=f"act:kill:{uid}")
+            ])
         else:
             buttons.append([
-                InlineKeyboardButton("👮 Shahar/Mafiya tekshiruvi", callback_data=f"act:sheriff_check:{uid}")
+                InlineKeyboardButton("🐺 Boshliq bilan ovga chiqish", callback_data=f"act:killer_assist:{uid}")
             ])
     elif role == "Doktor":
         buttons.append([
@@ -276,16 +290,30 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         if not game["alive"].get(uid, False):
             continue
         role = game["roles"].get(uid)
+        det_alive = any(
+            game["alive"].get(u, False) and game["roles"].get(u) == "Detektiv"
+            for u in game.get("players", [])
+        )
+        if role == "Sherif" and det_alive and uid not in game.get("sheriff_promoted", set()):
+            pm_prompt = (
+                f"🌙 *Tun #{night_num} amallari*\n"
+                f"🎭 Sizning rolingiz: *Sherif*\n\n"
+                "👮‍♂️ *Detektiv hozirda tirik!* Shahar xavfsizligini Detektiv ta'minlamoqda.\n"
+                "Siz uning o'rnini faqat Detektiv halok bo'lgandagina egallaysiz.\n"
+                "Quyidagi tugmalardan birini tanlang:"
+            )
+        else:
+            pm_prompt = (
+                f"🌙 *Tun #{night_num} amallari*\n"
+                f"🎭 Sizning rolingiz: *{role}*\n"
+                "Quyidagi tugmalardan birini tanlang:"
+            )
         kb = get_role_action_buttons(game, uid)
         if kb:
             try:
                 await context.bot.send_message(
                     chat_id=uid,
-                    text=(
-                        f"🌙 *Tun #{night_num} amallari*\n"
-                        f"🎭 Sizning rolingiz: *{role}*\n"
-                        "Quyidagi tugmalardan birini tanlang:"
-                    ),
+                    text=pm_prompt,
                     reply_markup=kb
                 )
             except Exception:

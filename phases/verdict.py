@@ -25,7 +25,7 @@ def verdict_keyboard(chat_id: int, accused_uid: int, is_pm: bool = False, game_o
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🔴 ⚔️ QATL ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:kill"),
-            InlineKeyboardButton("🟢 🕊️ AVF ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:forgive")
+            InlineKeyboardButton("🟢 🕊️ AFV (AVF) ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:forgive")
         ],
         [
             bottom_btn

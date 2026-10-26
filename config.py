@@ -105,6 +105,8 @@ NIGHT_ACTIVE_ROLES = {
     "Qasoskor",
     "Pul o'g'risi",
     "Firibgar",
+    "Bo'ri",
+    "Bori",
 }
 
 # 🛒 DO'KON KONSTANTALARI

@@ -16,7 +16,8 @@ from handlers import (
     stop_cmd, chiqish_cmd, reveal_cmd, shop_cmd, clan_cmd, newclan_cmd,
     para_cmd, dpara_cmd, mypara_cmd, bro_cmd, dbro_cmd, mybro_cmd,
     givegul_cmd, send_cmd, coin_cmd, gold_cmd, givecoin_cmd, givegold_cmd,
-    call_players_cmd, callback_router, plan_cmd, boost_cmd, settings_cmd, admin_cmd, stats_cmd
+    call_players_cmd, callback_router, plan_cmd, boost_cmd, settings_cmd, admin_cmd, stats_cmd,
+    goal_cmd, teamwork_cmd
 )
 from phases.lobby import create_lobby
 
@@ -168,6 +169,14 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
 
     if full_lower in ("boost", "premium", "vip") or cmd_token in ("boost", "premium", "vip"):
         await boost_cmd(update, context)
+        return
+
+    if full_lower in ("goal", "maqsad") or cmd_token in ("goal", "maqsad"):
+        await goal_cmd(update, context)
+        return
+
+    if full_lower in ("teamwork", "teamwork-preview", "teamwork_preview", "hamkorlik") or cmd_token in ("teamwork", "teamwork-preview", "teamwork_preview", "hamkorlik"):
+        await teamwork_cmd(update, context)
         return
 
     if cmd_token in ("settings", "sozlama", "sozlamalar"):
@@ -385,6 +394,8 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler(["admin", "panel", "boshqaruv"], admin_cmd))
     app.add_handler(CommandHandler(["plan", "reja", "mexanika"], plan_cmd))
     app.add_handler(CommandHandler(["boost", "premium", "vip"], boost_cmd))
+    app.add_handler(CommandHandler(["goal", "maqsad"], goal_cmd))
+    app.add_handler(CommandHandler(["teamwork", "teamwork_preview", "hamkorlik"], teamwork_cmd))
     app.add_handler(CommandHandler(["call", "chaqir", "tagall", "chorlov"], call_players_cmd))
     app.add_handler(CommandHandler(["will", "vasiyat", "vasiyatnoma"], will_cmd))
     app.add_handler(CommandHandler(["reveal", "mer"], reveal_cmd))

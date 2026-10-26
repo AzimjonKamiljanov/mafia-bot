@@ -29,6 +29,24 @@ from core.navigation import return_to_group_keyboard
 
 log = logging.getLogger("detektiv.handlers.callbacks")
 
+def check_night_completed(game: Dict[str, Any]) -> bool:
+    from config import NIGHT_ACTIVE_ROLES
+    det_alive = any(
+        game.get("alive", {}).get(u, False) and game.get("roles", {}).get(u) == "Detektiv"
+        for u in game.get("players", [])
+    )
+    active_alive = []
+    for u in game.get("players", []):
+        if not game.get("alive", {}).get(u, False):
+            continue
+        role = game.get("roles", {}).get(u)
+        # While Detective is alive, Sheriff has no active abilities and cannot act
+        if role == "Sherif" and det_alive and u not in game.get("sheriff_promoted", set()):
+            continue
+        if role in NIGHT_ACTIVE_ROLES:
+            active_alive.append(u)
+    return bool(active_alive) and all(u in game.get("night_done", set()) for u in active_alive)
+
 async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     if not q:
@@ -74,8 +92,11 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kind_title = "juftlik (Para)" if kind == "para" else "birodarlik (Bro)"
 
         if not is_accept:
+            db = await get_db()
+            await db.execute("DELETE FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = ?", (req_id, tgt_id, kind))
+            await db.commit()
             await q.answer("Taklif rad etildi.")
-            await q.edit_message_text(f"🔴 Siz {req_name}ning {kind_title} taklifini rad etdingiz.")
+            await q.edit_message_text(f"🔴 Siz <b>{html.escape(req_name)}</b>ning {kind_title} taklifini rad etdingiz.", parse_mode="HTML")
             try:
                 await context.bot.send_message(
                     chat_id=req_id,
@@ -94,10 +115,13 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tgt_has = await cursor.fetchone()
 
         if req_has or tgt_has:
+            await db.execute("DELETE FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = ?", (req_id, tgt_id, kind))
+            await db.commit()
             await q.answer("❌ Tomonlardan birida allaqachon bog'lanish mavjud!", show_alert=True)
             await q.edit_message_text("❌ Bog'lanish amalga oshmadi: tomonlardan birida allaqachon faol rishta mavjud.")
             return
 
+        await db.execute("DELETE FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = ?", (req_id, tgt_id, kind))
         await db.execute("""
             INSERT INTO social_links (user_id, other_id, kind, created_at)
             VALUES (?, ?, ?, datetime('now')), (?, ?, ?, datetime('now'))
@@ -434,6 +458,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             except Exception:
                 pass
+            if check_night_completed(game):
+                await resolve_night(context, game)
             return
 
         if action == "will_help":
@@ -599,6 +625,13 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif action == "detective":
             game.setdefault("detective_results", {})[str(actor)] = {"target": target}
         elif action == "sheriff_check":
+            det_alive = any(
+                game.get("alive", {}).get(u, False) and game.get("roles", {}).get(u) == "Detektiv"
+                for u in game.get("players", [])
+            )
+            if det_alive and actor not in game.get("sheriff_promoted", set()):
+                await q.answer("❌ Detektiv tirik bo'lgan paytda Sherif qobiliyati faol emas!", show_alert=True)
+                return
             from config import ROLES
             is_red = (ROLES.get(game["roles"].get(target)) == "red")
             team_str = "🔴 QIZIL JAMOA (MAFIA)" if is_red else "🔵 QIZIL EMAS (TINCH FUQARO)"
@@ -614,6 +647,10 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return
                 game["self_protect_used"].add(actor)
                 game.setdefault("doctor_self_heal_used", {})[actor] = True
+            else:
+                game.setdefault("self_protect_used", set()).discard(actor)
+                if actor in game.get("doctor_self_heal_used", {}):
+                    game["doctor_self_heal_used"][actor] = False
             game.setdefault("protected", set()).add(target)
             game.setdefault("protected_by", {})[target] = actor
         elif action == "guard":
@@ -622,6 +659,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await q.answer("❌ O'zingizni himoya qilishdan har o'yinda faqat 1 marta foydalana olasiz!", show_alert=True)
                     return
                 game["self_protect_used"].add(actor)
+            else:
+                game.setdefault("self_protect_used", set()).discard(actor)
             game.setdefault("guarded_by", {})[target] = actor
         elif action == "lawyer":
             game.setdefault("lawyer_clients", {})[actor] = target
@@ -701,13 +740,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             await save_runtime(game)
-            active_alive = [
-                u for u in game.get("players", [])
-                if game.get("alive", {}).get(u, False) and game.get("roles", {}).get(u) in (
-                    "Detektiv", "Sherif", "Doktor", "Tansoqchi", "Boshliq", "Maniak", "Pirotexnik", "Begona", "Maftunkor", "Ruhshunos", "Firibgar"
-                )
-            ]
-            if all(u in game.get("night_done", set()) for u in active_alive):
+            if check_night_completed(game):
                 await resolve_night(context, game)
             return
 
@@ -722,13 +755,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await save_runtime(game)
 
         # Fast forward if all active alive have acted
-        active_alive = [
-            u for u in game.get("players", [])
-            if game.get("alive", {}).get(u, False) and game.get("roles", {}).get(u) in (
-                "Detektiv", "Sherif", "Doktor", "Tansoqchi", "Boshliq", "Maniak", "Pirotexnik", "Begona", "Maftunkor", "Ruhshunos", "Firibgar"
-            )
-        ]
-        if all(u in game.get("night_done", set()) for u in active_alive):
+        if check_night_completed(game):
             await resolve_night(context, game)
         return
 

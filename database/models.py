@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
-from config import ADMIN_ID, ADMIN_IDS, ADMIN_USERNAMES, BADGE_DAYS
+from config import ADMIN_ID, ADMIN_IDS, ADMIN_USERNAMES, BADGE_DAYS, DEFAULT_DAY_SECONDS
 from .db import get_db
 
 log = logging.getLogger("detektiv.models")
@@ -228,18 +228,18 @@ async def get_chat_settings(chat_id: int) -> Dict[str, Any]:
         now = now_iso()
         await db.execute("""
             INSERT OR IGNORE INTO chat_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
-            VALUES (?, 300, 60, 120, 45, 25, '[]', ?)
-        """, (chat_id, now))
+            VALUES (?, 300, 60, ?, 45, 25, '[]', ?)
+        """, (chat_id, DEFAULT_DAY_SECONDS, now))
         await db.execute("""
             INSERT OR IGNORE INTO group_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
-            VALUES (?, 300, 60, 120, 45, 25, '[]', ?)
-        """, (chat_id, now))
+            VALUES (?, 300, 60, ?, 45, 25, '[]', ?)
+        """, (chat_id, DEFAULT_DAY_SECONDS, now))
         await db.commit()
         return {
             "chat_id": chat_id,
             "lobby_seconds": 300,
             "night_seconds": 60,
-            "day_seconds": 120,
+            "day_seconds": DEFAULT_DAY_SECONDS,
             "vote_seconds": 45,
             "verdict_seconds": 25,
             "disabled_roles": "[]"

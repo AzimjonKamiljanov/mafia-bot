@@ -69,9 +69,14 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     if is_group:
         prop_key = (requester.id, target.id, "para")
+        # Check SQLite and memory for existing pending proposal
+        async with db.execute("SELECT id FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = 'para'", (requester.id, target.id)) as c:
+            db_req = await c.fetchone()
+
         # Secret Easter Egg: If repeat proposal sent without target rejecting, auto-accept!
-        if prop_key in pending_social_proposals:
+        if prop_key in pending_social_proposals or db_req:
             pending_social_proposals.pop(prop_key, None)
+            await db.execute("DELETE FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = 'para'", (requester.id, target.id))
             await db.execute("""
                 INSERT INTO social_links (user_id, other_id, kind, created_at)
                 VALUES (?, ?, 'para', datetime('now')), (?, ?, 'para', datetime('now'))
@@ -80,7 +85,7 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await db.commit()
 
             # Announce both in group and in PM
-            await msg.reply_text(f"💍 *{requester.full_name}* va *{target.full_name}* muvaffaqiyatli juftlik (Para) bo'ldilar!", parse_mode="Markdown")
+            await msg.reply_text(f"💍 <b>{html.escape(requester.full_name)}</b> va <b>{html.escape(target.full_name)}</b> muvaffaqiyatli juftlik (Para) bo'ldilar!", parse_mode="HTML")
             try:
                 await context.bot.send_message(
                     chat_id=requester.id,
@@ -99,7 +104,13 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             return
 
-        # 1st time: register pending proposal and send PM to target
+        # 1st time: register pending proposal in memory and database, then send PM to target
+        await db.execute("""
+            INSERT INTO social_requests (requester_id, target_id, kind, created_at)
+            VALUES (?, ?, 'para', datetime('now'))
+        """, (requester.id, target.id))
+        await db.commit()
+
         pending_social_proposals[prop_key] = {
             "requester_id": requester.id,
             "requester_name": requester.full_name,
@@ -153,7 +164,7 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """, (requester.id, target.id, target.id, requester.id))
     await db.commit()
 
-    await msg.reply_text(f"💍 *{requester.full_name}* va *{target.full_name}* muvaffaqiyatli juftlik (Para) bo'ldilar!", parse_mode="Markdown")
+    await msg.reply_text(f"💍 <b>{html.escape(requester.full_name)}</b> va <b>{html.escape(target.full_name)}</b> muvaffaqiyatli juftlik (Para) bo'ldilar!", parse_mode="HTML")
 
 async def dpara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message or update.effective_message
@@ -256,9 +267,14 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     if is_group:
         prop_key = (requester.id, target.id, "bro")
+        # Check SQLite and memory for existing pending proposal
+        async with db.execute("SELECT id FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = 'bro'", (requester.id, target.id)) as c:
+            db_req = await c.fetchone()
+
         # Secret Easter Egg: If repeat proposal sent without target rejecting, auto-accept!
-        if prop_key in pending_social_proposals:
+        if prop_key in pending_social_proposals or db_req:
             pending_social_proposals.pop(prop_key, None)
+            await db.execute("DELETE FROM social_requests WHERE requester_id = ? AND target_id = ? AND kind = 'bro'", (requester.id, target.id))
             await db.execute("""
                 INSERT INTO social_links (user_id, other_id, kind, created_at)
                 VALUES (?, ?, 'bro', datetime('now')), (?, ?, 'bro', datetime('now'))
@@ -267,7 +283,7 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await db.commit()
 
             # Announce both in group and in PM
-            await msg.reply_text(f"🤝 *{requester.full_name}* va *{target.full_name}* birodar (Bro) bo'ldilar!", parse_mode="Markdown")
+            await msg.reply_text(f"🤝 <b>{html.escape(requester.full_name)}</b> va <b>{html.escape(target.full_name)}</b> birodar (Bro) bo'ldilar!", parse_mode="HTML")
             try:
                 await context.bot.send_message(
                     chat_id=requester.id,
@@ -286,7 +302,13 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             return
 
-        # 1st time: register pending proposal and send PM to target
+        # 1st time: register pending proposal in memory and database, then send PM to target
+        await db.execute("""
+            INSERT INTO social_requests (requester_id, target_id, kind, created_at)
+            VALUES (?, ?, 'bro', datetime('now'))
+        """, (requester.id, target.id))
+        await db.commit()
+
         pending_social_proposals[prop_key] = {
             "requester_id": requester.id,
             "requester_name": requester.full_name,
@@ -339,7 +361,7 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ON CONFLICT DO NOTHING
     """, (requester.id, target.id, target.id, requester.id))
     await db.commit()
-    await msg.reply_text(f"🤝 *{requester.full_name}* va *{target.full_name}* birodar (Bro) bo'ldilar!", parse_mode="Markdown")
+    await msg.reply_text(f"🤝 <b>{html.escape(requester.full_name)}</b> va <b>{html.escape(target.full_name)}</b> birodar (Bro) bo'ldilar!", parse_mode="HTML")
 
 async def dbro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message or update.effective_message

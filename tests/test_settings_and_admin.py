@@ -22,7 +22,7 @@ async def test_chat_settings_crud():
     await db.commit()
     settings = await get_chat_settings(chat_id)
     assert settings["night_seconds"] == 60
-    assert settings["day_seconds"] == 120
+    assert settings["day_seconds"] == 15
     assert settings["vote_seconds"] == 45
     assert settings["verdict_seconds"] == 25
 
@@ -81,10 +81,12 @@ async def test_sheriff_promoted_buttons():
     }
     kb_alive = get_role_action_buttons(game_det_alive, 20)
     assert kb_alive is not None
-    # Check button text
+    # Check button text: no active ability buttons while Detective is alive
     btn_texts = [btn.text for row in kb_alive.inline_keyboard for btn in row]
-    assert "👮 Shahar/Mafiya tekshiruvi" in btn_texts
+    assert "👮 Shahar/Mafiya tekshiruvi" not in btn_texts
+    assert "🔎 Shaxsni tekshirish" not in btn_texts
     assert "🔫 Shubhali shaxsni otish" not in btn_texts
+    assert any("dam olish" in t.lower() for t in btn_texts)
 
     # When Detektiv is dead, Sherif gains detective abilities
     game_det_dead = {

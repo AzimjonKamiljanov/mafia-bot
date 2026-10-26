@@ -271,3 +271,228 @@ async def test_para_and_bro_group_proposal_flow_and_easter_egg(mock_context):
     await callback_router(up_rej, mock_context)
     assert (9801, 9803, "bro") not in pending_social_proposals
     assert "rad etdingiz" in up_rej.callback_query.edit_message_text.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_sheriff_has_no_active_abilities_while_detective_alive_and_fast_forward(mock_context):
+    """While Detektiv is alive, Sherif has NO active abilities, and Sheriff never blocks night fast-forward."""
+    from core.engine import games
+    from handlers.callbacks import check_night_completed
+
+    chat_id = -2099
+    game = {
+        "chat": chat_id,
+        "players": [8101, 8102, 8103],
+        "names": {8101: "Det", 8102: "Sher", 8103: "Boss"},
+        "roles": {8101: "Detektiv", 8102: "Sherif", 8103: "Boshliq"},
+        "alive": {8101: True, 8102: True, 8103: True},
+        "phase": "night",
+        "night": 1,
+        "night_done": set(),
+        "sheriff_promoted": set()
+    }
+    games[chat_id] = game
+
+    # 1. Verify Sheriff has no active ability buttons
+    kb_sher = get_role_action_buttons(game, 8102)
+    assert kb_sher is not None
+    btn_texts = [b.text for row in kb_sher.inline_keyboard for b in row]
+    assert "👮 Shahar/Mafiya tekshiruvi" not in btn_texts
+    assert "🔎 Shaxsni tekshirish" not in btn_texts
+    assert "🔫 Shubhali shaxsni otish" not in btn_texts
+    assert any("dam olish" in t.lower() for t in btn_texts)
+
+    # 2. If Sheriff tries sheriff_check callback while Detective alive, it is rejected
+    up_cb = MagicMock()
+    up_cb.callback_query = MagicMock()
+    up_cb.callback_query.data = "tgt:sheriff_check:8102:8103"
+    up_cb.callback_query.from_user = MockUser(8102, "Sher")
+    up_cb.callback_query.answer = AsyncMock()
+    up_cb.effective_user = up_cb.callback_query.from_user
+    await callback_router(up_cb, mock_context)
+    assert up_cb.callback_query.answer.called
+    assert "qobiliyati faol emas" in up_cb.callback_query.answer.call_args[0][0]
+
+    # 3. Night completion check: only Detective and Boss are required, Sheriff does not block!
+    assert not check_night_completed(game)
+    game["night_done"].add(8101) # Detective acted
+    assert not check_night_completed(game)
+    game["night_done"].add(8103) # Boss acted
+    # Now night IS completed even though Sheriff never acted!
+    assert check_night_completed(game)
+
+@pytest.mark.asyncio
+async def test_night_resolves_immediately_on_sleep(mock_context):
+    """When the last active player sleeps, night resolves immediately."""
+    from core.engine import games
+    chat_id = -2098
+    game = {
+        "chat": chat_id,
+        "players": [8201, 8202],
+        "names": {8201: "Det", 8202: "Boss"},
+        "roles": {8201: "Detektiv", 8202: "Boshliq"},
+        "alive": {8201: True, 8202: True},
+        "phase": "night",
+        "night": 1,
+        "night_done": {8201}, # Detective already acted
+        "sheriff_promoted": set()
+    }
+    games[chat_id] = game
+
+    # Boss chooses sleep
+    up_cb = MagicMock()
+    up_cb.callback_query = MagicMock()
+    up_cb.callback_query.data = "act:sleep:8202"
+    up_cb.callback_query.from_user = MockUser(8202, "Boss")
+    up_cb.callback_query.answer = AsyncMock()
+    up_cb.callback_query.edit_message_text = AsyncMock()
+    up_cb.effective_user = up_cb.callback_query.from_user
+
+    await callback_router(up_cb, mock_context)
+    # Boss is marked done and resolution was initiated
+    assert 8202 in game["night_done"]
+    assert game.get("phase") in ("day", "finished")
+
+@pytest.mark.asyncio
+async def test_doctor_target_switch_preserves_self_heal(mock_context):
+    """Doctor selecting another player after selecting self restores their 1-time self-heal."""
+    from core.engine import games
+    chat_id = -2097
+    game = {
+        "chat": chat_id,
+        "players": [8301, 8302, 8303],
+        "names": {8301: "Doc", 8302: "Patient", 8303: "Boss"},
+        "roles": {8301: "Doktor", 8302: "Fuqaro", 8303: "Boshliq"},
+        "alive": {8301: True, 8302: True, 8303: True},
+        "phase": "night",
+        "night": 1,
+        "night_done": set(),
+        "self_protect_used": set(),
+        "doctor_self_heal_used": {}
+    }
+    games[chat_id] = game
+
+    # 1. Doctor selects self
+    up_self = MagicMock()
+    up_self.callback_query = MagicMock()
+    up_self.callback_query.data = "tgt:protect:8301:8301"
+    up_self.callback_query.from_user = MockUser(8301, "Doc")
+    up_self.callback_query.answer = AsyncMock()
+    up_self.callback_query.edit_message_text = AsyncMock()
+    up_self.effective_user = up_self.callback_query.from_user
+
+    await callback_router(up_self, mock_context)
+    assert 8301 in game["self_protect_used"]
+
+    # 2. Doctor switches to Patient before night resolution
+    up_other = MagicMock()
+    up_other.callback_query = MagicMock()
+    up_other.callback_query.data = "tgt:protect:8301:8302"
+    up_other.callback_query.from_user = MockUser(8301, "Doc")
+    up_other.callback_query.answer = AsyncMock()
+    up_other.callback_query.edit_message_text = AsyncMock()
+    up_other.effective_user = up_other.callback_query.from_user
+
+    await callback_router(up_other, mock_context)
+    # Self protect is freed!
+    assert 8301 not in game["self_protect_used"]
+    assert game["doctor_self_heal_used"][8301] is False
+
+@pytest.mark.asyncio
+async def test_social_proposal_persistence_across_process_reboot(mock_context):
+    """Pending proposal stored in SQLite allows secret easter egg to trigger even after in-memory state is lost."""
+    await init_db()
+    db = await get_db()
+    await db.execute("DELETE FROM social_links WHERE user_id IN (9901, 9902)")
+    await db.execute("DELETE FROM social_requests WHERE requester_id IN (9901, 9902) OR target_id IN (9901, 9902)")
+    await db.commit()
+    pending_social_proposals.clear()
+
+    u1 = MockUser(9901, "Alisher")
+    u2 = MockUser(9902, "Nargiza")
+
+    await ensure_user(u1)
+    await ensure_user(u2)
+
+    up_grp = MagicMock()
+    up_grp.message = MagicMock()
+    up_grp.message.from_user = u1
+    up_grp.message.reply_to_message = MagicMock(from_user=u2)
+    up_grp.message.reply_text = AsyncMock()
+    up_grp.effective_chat = MagicMock(type="supergroup", id=-1007788)
+
+    # 1. First send
+    await para_cmd(up_grp, mock_context)
+
+    # Verify persisted in SQLite
+    async with db.execute("SELECT * FROM social_requests WHERE requester_id = 9901 AND target_id = 9902") as c:
+        row = await c.fetchone()
+    assert row is not None
+
+    # Simulate process reboot: memory wiped!
+    pending_social_proposals.clear()
+    assert (9901, 9902, "para") not in pending_social_proposals
+
+    # 2. Second send after reboot -> Secret Easter Egg auto-accepts from DB!
+    up_grp.message.reply_text.reset_mock()
+    await para_cmd(up_grp, mock_context)
+    auto_reply = up_grp.message.reply_text.call_args[0][0]
+    assert "muvaffaqiyatli juftlik" in auto_reply
+
+    # Verified linked in social_links
+    async with db.execute("SELECT other_id FROM social_links WHERE user_id = 9901 AND kind = 'para'") as c:
+        link_row = await c.fetchone()
+    assert link_row["other_id"] == 9902
+
+@pytest.mark.asyncio
+async def test_goal_and_teamwork_commands(mock_context):
+    """Test /goal and /teamwork command handlers."""
+    from handlers.commands import goal_cmd, teamwork_cmd
+    u = MockUser(7701, "Botir")
+    await ensure_user(u)
+
+    up = MagicMock()
+    up.message = MagicMock()
+    up.message.from_user = u
+    up.message.reply_text = AsyncMock()
+    up.effective_user = u
+
+    # /goal outside of active game
+    await goal_cmd(up, mock_context)
+    goal_out = up.message.reply_text.call_args[0][0]
+    assert "Shahar (Town) Maqsadi" in goal_out
+    assert "Mafiya (Mafia) Maqsadi" in goal_out
+
+    # /teamwork
+    up.message.reply_text.reset_mock()
+    await teamwork_cmd(up, mock_context)
+    tw_out = up.message.reply_text.call_args[0][0]
+    assert "Detektiv va Sherif Hamkorligi" in tw_out
+    assert "/para" in tw_out
+
+@pytest.mark.asyncio
+async def test_bori_night_action_and_sleep(mock_context):
+    """Test Bo'ri actions and sleep messages."""
+    game = {
+        "chat": -2096,
+        "players": [401, 402, 403],
+        "names": {401: "Wolf", 402: "Boss", 403: "Doc"},
+        "roles": {401: "Bo'ri", 402: "Boshliq", 403: "Doktor"},
+        "alive": {401: True, 402: True, 403: True},
+        "phase": "night",
+        "night": 1
+    }
+    # When boss is alive, Bo'ri assists
+    kb_alive = get_role_action_buttons(game, 401)
+    btn_texts = [b.text for row in kb_alive.inline_keyboard for b in row]
+    assert any("Boshliq bilan ovga chiqish" in t for t in btn_texts)
+
+    # When boss dies, Bo'ri hunts independently
+    game["alive"][402] = False
+    kb_solo = get_role_action_buttons(game, 401)
+    btn_texts_solo = [b.text for row in kb_solo.inline_keyboard for b in row]
+    assert any("Ovga chiqish (Boshliqsiz)" in t for t in btn_texts_solo)
+
+    # Test Bo'ri sleep broadcast
+    await broadcast_role_sleep(mock_context, game, actor=401)
+    assert "Bo‘ri bu tun dam oldi... 😴" in mock_context.bot.send_message.call_args[1]["text"]
+

@@ -1,6 +1,6 @@
 from .commands import (
     start_cmd, salom_cmd, startgame_cmd, will_cmd, profile_cmd, balance_cmd, rating_cmd, guide_cmd, stop_cmd, chiqish_cmd, reveal_cmd,
-    call_players_cmd, plan_cmd, boost_cmd
+    call_players_cmd, plan_cmd, boost_cmd, goal_cmd, teamwork_cmd
 )
 from .settings import settings_cmd
 from .admin_panel import admin_cmd, stats_cmd

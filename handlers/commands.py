@@ -985,4 +985,74 @@ async def boost_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     boost_kb = InlineKeyboardMarkup(buttons)
     await msg.reply_text(boost_text, reply_markup=boost_kb, parse_mode="HTML")
 
+async def goal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
+    await ensure_user(user)
+
+    from core.engine import find_game_by_user
+    game = find_game_by_user(user.id)
+    if game and game.get("alive", {}).get(user.id, False):
+        role = game.get("roles", {}).get(user.id)
+        from roles.dossier import get_role_dossier
+        dossier = get_role_dossier(role)
+        text = (
+            f"🎯 <b>SIZNING O'YIN MAQSADINGIZ</b>\n\n"
+            f"🎭 <b>Rolingiz:</b> {dossier.icon} <b>{dossier.role_name}</b>\n"
+            f"🏷️ <b>Jamoangiz:</b> <b>{dossier.team_display}</b>\n\n"
+            f"⚡ <b>Bosh Maqsad:</b>\n{dossier.goal}\n\n"
+            f"💡 <i>Taktik maslahat:</i> {dossier.tactical_tip}"
+        )
+    else:
+        text = (
+            f"🎯 <b>DETEKTIV MAFIA — JAMOAVIY MAQSADLAR</b>\n\n"
+            "🔵 <b>Shahar (Town) Maqsadi:</b>\n"
+            "Barcha Mafiya a'zolari va shafqatsiz qotillarni fosh qilish, tergov va sud orqali shaharni tozalash!\n\n"
+            "🔴 <b>Mafiya (Mafia) Maqsadi:</b>\n"
+            "Shahar aholisini tunda va sudda yo'q qilib, ko'pchilikni egallash va shahar ustidan nazorat o'rnatish!\n\n"
+            "🟡 <b>Yakkaxonlar (Solo) Maqsadi:</b>\n"
+            "• <b>Joker:</b> Shaharni aldab o'zini dorda ostirish!\n"
+            "• <b>Maniak:</b> Shahar va mafiyaning barchasini yo'q qilib, yolg'iz tirik qolish!\n"
+            "• <b>Pirotexnik:</b> Uylarga kerosin quyib, barchasini olovda yoqish!\n"
+            "• <b>Qasoskor:</b> O'z dushmanidan qasos olish!\n"
+            "• <b>Pul o'g'risi:</b> Eng boy o'yinchiga aylanish!\n"
+            "• <b>Firibgar:</b> Soxta qiyofaga kirib omon qolish!"
+        )
+
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📖 Barcha Rollar Qo'llanmasi", callback_data="guide_roles")],
+        [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+    ])
+    await msg.reply_text(text, reply_markup=kb, parse_mode="HTML")
+
+async def teamwork_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
+    await ensure_user(user)
+
+    text = (
+        f"🤝 <b>DETEKTIV MAFIA — JAMOAVIY HAMKORLIK VA ITTIFOQLAR PREVIEW</b>\n\n"
+        "✨ <b>1. Detektiv va Sherif Hamkorligi:</b>\n"
+        "• Detektiv tirik ekan, shahar xavfsizligini ta'minlab, faol tergov olib boradi.\n"
+        "• Sherif esa Detektiv tirik paytda passiv turadi va uning o'rnini kutadi.\n"
+        "• <b>Detektiv halok bo'lgach:</b> Sherif darhol barcha detektivlik vakolatlariga ega bo'lib Detektivga aylanadi!\n\n"
+        "✨ <b>2. Mafiya Sindikati:</b>\n"
+        "• <b>Boshliq (Don)</b> tungi qotillik nishonini belgilaydi.\n"
+        "• <b>Qotil</b> va <b>Bo'ri</b> Boshliq bilan birga harakatlanadi. Agar Boshliq halok bo'lsa, mustaqil ovga chiqadi!\n"
+        "• <b>Soya</b> va <b>Soxtachi</b> tergovchilarni chalg'itib, soxta dalillar orqali mafiyani himoyalaydi.\n\n"
+        "✨ <b>3. Ijtimoiy Ittifoqlar (Social Bonds):</b>\n"
+        "• 💍 <code>/para</code> — Juftlik: do'stingiz bilan maxsus sevgi rishtasi.\n"
+        "• 🤝 <code>/bro</code> — Birodarlik: do'stingiz bilan ishonchli do'stlik rishtasi.\n"
+        "• Guruhda kimningdir xabariga 'Reply' qilib buyruqni yuboring va so'rov yuboriladi!"
+    )
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💍 Juftlik (/mypara)", callback_data="my_para_info"), InlineKeyboardButton("🤝 Birodar (/mybro)", callback_data="my_bro_info")],
+        [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+    ])
+    await msg.reply_text(text, reply_markup=kb, parse_mode="HTML")
+
 
