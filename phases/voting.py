@@ -28,7 +28,7 @@ def get_voting_keyboard(game: Dict[str, Any], is_pm: bool = False) -> InlineKeyb
             InlineKeyboardButton(f"👤 {name}", callback_data=f"vote:{chat_id}:{uid}")
         ])
     rows.append([
-        InlineKeyboardButton("🕊️ Hech kimga ovoz bermaslik", callback_data=f"vote:{chat_id}:none")
+        InlineKeyboardButton("🟢 🕊️ Hech kimga ovoz bermaslik", callback_data=f"vote:{chat_id}:none")
     ])
     has_unrevealed_mayor = any(
         game.get("roles", {}).get(u) == "Mer" and game.get("alive", {}).get(u, False) and u not in game.get("mayor_revealed", set())
@@ -36,7 +36,7 @@ def get_voting_keyboard(game: Dict[str, Any], is_pm: bool = False) -> InlineKeyb
     )
     if has_unrevealed_mayor:
         rows.append([
-            InlineKeyboardButton("🎖️ Merlikni e'lon qilish (/reveal)", callback_data=f"mayor_reveal:{chat_id}")
+            InlineKeyboardButton("🎖️ 👑 Merlikni e'lon qilish (/reveal)", callback_data=f"mayor_reveal:{chat_id}")
         ])
     if is_pm:
         rows.append([
@@ -44,7 +44,7 @@ def get_voting_keyboard(game: Dict[str, Any], is_pm: bool = False) -> InlineKeyb
         ])
     else:
         rows.append([
-            bot_action_button(chat_id, "Botga o'tish ↗")
+            bot_action_button(chat_id, "🔵 💬 Botga o'tish ↗")
         ])
     return InlineKeyboardMarkup(rows)
 
@@ -163,7 +163,9 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
         await start_night(context, game)
         return
 
-    # Put on stand for Verdict phase
     accused_uid = int(top_target)
     from phases.verdict import verdict_phase
     await verdict_phase(context, game, accused_uid)
+
+start_voting_phase = start_voting
+

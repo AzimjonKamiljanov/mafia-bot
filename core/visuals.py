@@ -129,12 +129,10 @@ def strip_anim_emoji_tags(text: str) -> str:
 async def send_animated_dice_effect(bot: Bot, chat_id: int, emoji: str = "🎯"):
     """
     Safely trigger Telegram native interactive 3D physics animation:
-    - '🎯': Dart arrow hitting target (execution / shoot)
-    - '🎲': 3D rolling dice (luck / gold drop / random event / mystery)
-    - '🎰': Animated slot jackpot (win / casino celebration)
-    - '🎳': Bowling strike
-    - '⚽': Football goal
+    Note: Suppressed in groups (chat_id < 0) to remove spinning 3D dice from gameplay groups.
     """
+    if chat_id < 0:
+        return None
     try:
         if hasattr(bot, "send_dice"):
             return await bot.send_dice(chat_id=chat_id, emoji=emoji)

@@ -86,7 +86,7 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         lines.append("")
         lines.append("🕊️ Bu kecha hech kim halok bo'lmadi. Shaharda osoyishtalik!")
 
-    day_seconds = int(game.get("settings", {}).get("day_seconds", DEFAULT_DAY_SECONDS))
+    day_seconds = int(game.get("settings", {}).get("day_seconds", 15))
     lines.extend([
         "",
         f"💬 Shahar uyg'ondi. Muhokama boshlandi! ({day_seconds} soniya)",
@@ -94,8 +94,8 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     ])
 
     buttons = [
-        [InlineKeyboardButton("🗳️ Ovoz berishga o'tish", callback_data=f"day_to_vote:{chat_id}")],
-        [bot_action_button(chat_id, "💬 Botga o'tish (Amallar/Ovoz)")]
+        [InlineKeyboardButton("🟡 🗳️ Ovoz berishga o'tish", callback_data=f"day_to_vote:{chat_id}")],
+        [bot_action_button(chat_id, "🔵 💬 Botga o'tish (Amallar/Ovoz)")]
     ]
     has_unrevealed_mayor = any(
         game.get("roles", {}).get(u) == "Mer" and game.get("alive", {}).get(u, False) and u not in game.get("mayor_revealed", set())
@@ -103,7 +103,7 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     )
     if has_unrevealed_mayor:
         buttons.append([
-            InlineKeyboardButton("🎖️ Merlikni e'lon qilish (/reveal)", callback_data=f"mayor_reveal:{chat_id}")
+            InlineKeyboardButton("🎖️ 👑 Merlikni e'lon qilish (/reveal)", callback_data=f"mayor_reveal:{chat_id}")
         ])
     day_keyboard = InlineKeyboardMarkup(buttons)
 

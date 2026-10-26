@@ -12,10 +12,10 @@ log = logging.getLogger("detektiv.handlers.shop")
 
 def shop_main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🪙 Coin Shop", callback_data="shop_coin")],
-        [InlineKeyboardButton("🥇 Gold Shop", callback_data="shop_gold")],
-        [InlineKeyboardButton("🎒 Mening buyumlarim", callback_data="shop_items")],
-        [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        [InlineKeyboardButton("🪙 💰 Coin Do'kon", callback_data="shop_coin")],
+        [InlineKeyboardButton("🥇 👑 Gold VIP Do'kon", callback_data="shop_gold")],
+        [InlineKeyboardButton("🎒 📦 Mening buyumlarim", callback_data="shop_items")],
+        [InlineKeyboardButton("⬅️ 🏠 Bosh menyu", callback_data="menu_main")]
     ])
 
 async def shop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):

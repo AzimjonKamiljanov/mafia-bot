@@ -21,11 +21,11 @@ log = logging.getLogger("detektiv.phases.verdict")
 
 def verdict_keyboard(chat_id: int, accused_uid: int, is_pm: bool = False, game_or_link: Any = None) -> InlineKeyboardMarkup:
     from core.navigation import bot_action_button, return_to_group_button
-    bottom_btn = return_to_group_button(game_or_link or chat_id) if is_pm else bot_action_button(chat_id, "💬 Botga o'tish (Hukm/Ovoz)")
+    bottom_btn = return_to_group_button(game_or_link or chat_id) if is_pm else bot_action_button(chat_id, "🔵 💬 Botga o'tish (Hukm/Ovoz)")
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("⚔️ QATL ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:kill"),
-            InlineKeyboardButton("🕊️ AVF ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:forgive")
+            InlineKeyboardButton("🔴 ⚔️ QATL ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:kill"),
+            InlineKeyboardButton("🟢 🕊️ AVF ETISH", callback_data=f"verdict:{chat_id}:{accused_uid}:forgive")
         ],
         [
             bottom_btn
@@ -202,10 +202,11 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
                 for p_uid, p_role in game.get("roles", {}).items():
                     if p_role == "Sherif" and game["alive"].get(p_uid, False):
                         game.setdefault("sheriff_promoted", set()).add(p_uid)
+                        game["roles"][p_uid] = "Detektiv"
                         try:
                             await context.bot.send_message(
                                 chat_id=p_uid,
-                                text="🕵️‍♂️ *DETEKTIV VAFOT ETDI!*\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz.",
+                                text="🕵️‍♂️ *DETEKTIV VAFOT ETDI!*\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz va Detektivga aylandingiz.",
                                 reply_markup=return_to_group_keyboard(game)
                             )
                         except Exception:
@@ -248,7 +249,6 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         lines.append(f"\n🕊️ *SHAHAR AVF ETDI:* *{accused_name}* omon qoldi va o'yin davom etadi.")
 
     sound_marker = "execution" if (kill_weight > forgive_weight) else "saved"
-    await send_animated_dice_effect(context.bot, chat_id, emoji="🎯" if sound_marker == "execution" else "🎲")
     await send_atmospheric_message(
         bot=context.bot,
         chat_id=chat_id,

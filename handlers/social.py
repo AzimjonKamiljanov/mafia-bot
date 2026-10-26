@@ -13,6 +13,8 @@ from core.engine import active_drops
 
 log = logging.getLogger("detektiv.handlers.social")
 
+pending_social_proposals: dict = {}
+
 async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message or update.effective_message
     chat = update.effective_chat
@@ -58,7 +60,92 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("❌ Nishon allaqachon boshqa inson bilan juftlik (Para) tuzgan.")
         return
 
-    # Check or insert request
+    cid = getattr(chat, "id", None)
+    is_group = bool(
+        chat and (
+            getattr(chat, "type", "") in ("group", "supergroup")
+            or (isinstance(cid, int) and cid < 0)
+        )
+    )
+    if is_group:
+        prop_key = (requester.id, target.id, "para")
+        # Secret Easter Egg: If repeat proposal sent without target rejecting, auto-accept!
+        if prop_key in pending_social_proposals:
+            pending_social_proposals.pop(prop_key, None)
+            await db.execute("""
+                INSERT INTO social_links (user_id, other_id, kind, created_at)
+                VALUES (?, ?, 'para', datetime('now')), (?, ?, 'para', datetime('now'))
+                ON CONFLICT DO NOTHING
+            """, (requester.id, target.id, target.id, requester.id))
+            await db.commit()
+
+            # Announce both in group and in PM
+            await msg.reply_text(f"💍 *{requester.full_name}* va *{target.full_name}* muvaffaqiyatli juftlik (Para) bo'ldilar!", parse_mode="Markdown")
+            try:
+                await context.bot.send_message(
+                    chat_id=requester.id,
+                    text=f"💍 <b>{html.escape(target.full_name)}</b> bilan juftlik (Para) muvaffaqiyatli bog'landi!",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            try:
+                await context.bot.send_message(
+                    chat_id=target.id,
+                    text=f"💍 <b>{html.escape(requester.full_name)}</b> bilan juftlik (Para) tasdiqlandi!",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            return
+
+        # 1st time: register pending proposal and send PM to target
+        pending_social_proposals[prop_key] = {
+            "requester_id": requester.id,
+            "requester_name": requester.full_name,
+            "target_id": target.id,
+            "target_name": target.full_name,
+            "chat_id": chat.id,
+            "kind": "para",
+            "time": time.time()
+        }
+
+        # Reply in group
+        await msg.reply_text(
+            f"👤 <b>{html.escape(requester.full_name)}</b> <b>{html.escape(target.full_name)}</b> ga juftlik (/para) so'rovi yubordi. Qabul qilsa, xabar beraman!",
+            parse_mode="HTML"
+        )
+
+        # Dispatch proposal to target in PM
+        pm_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🟢 Qabul qilish", callback_data=f"soc_acc:{requester.id}:{target.id}:para:{chat.id}"),
+                InlineKeyboardButton("🔴 Rad etish", callback_data=f"soc_rej:{requester.id}:{target.id}:para:{chat.id}")
+            ]
+        ])
+        pm_text = (
+            f"💌 <b>{html.escape(requester.full_name)}</b> sizga juftlik (/para) taklifini yubordi! Qabul qilasizmi?"
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=target.id,
+                text=pm_text,
+                reply_markup=pm_kb,
+                parse_mode="HTML"
+            )
+        except Exception:
+            from config import BOT_USERNAME
+            warn_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔵 💬 Botga o'tish ↗", url=f"https://t.me/{BOT_USERNAME}?start=para")]
+            ])
+            await msg.reply_text(
+                f"⚠️ <b>{html.escape(target.full_name)}</b> botga start bosmagan! Taklifni qabul qilish uchun avval botimizga kiring: @{BOT_USERNAME}",
+                reply_markup=warn_kb,
+                parse_mode="HTML"
+            )
+        return
+
+    # Non-group fallback (e.g. test environments)
     await db.execute("""
         INSERT INTO social_links (user_id, other_id, kind, created_at)
         VALUES (?, ?, 'para', datetime('now')), (?, ?, 'para', datetime('now'))
@@ -160,6 +247,92 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("❌ Nishon allaqachon boshqa inson bilan birodarlik rishtasini bog'lagan.")
         return
 
+    cid = getattr(chat, "id", None)
+    is_group = bool(
+        chat and (
+            getattr(chat, "type", "") in ("group", "supergroup")
+            or (isinstance(cid, int) and cid < 0)
+        )
+    )
+    if is_group:
+        prop_key = (requester.id, target.id, "bro")
+        # Secret Easter Egg: If repeat proposal sent without target rejecting, auto-accept!
+        if prop_key in pending_social_proposals:
+            pending_social_proposals.pop(prop_key, None)
+            await db.execute("""
+                INSERT INTO social_links (user_id, other_id, kind, created_at)
+                VALUES (?, ?, 'bro', datetime('now')), (?, ?, 'bro', datetime('now'))
+                ON CONFLICT DO NOTHING
+            """, (requester.id, target.id, target.id, requester.id))
+            await db.commit()
+
+            # Announce both in group and in PM
+            await msg.reply_text(f"🤝 *{requester.full_name}* va *{target.full_name}* birodar (Bro) bo'ldilar!", parse_mode="Markdown")
+            try:
+                await context.bot.send_message(
+                    chat_id=requester.id,
+                    text=f"🤝 <b>{html.escape(target.full_name)}</b> bilan birodarlik (Bro) rishtasi muvaffaqiyatli bog'landi!",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            try:
+                await context.bot.send_message(
+                    chat_id=target.id,
+                    text=f"🤝 <b>{html.escape(requester.full_name)}</b> bilan birodarlik (Bro) tasdiqlandi!",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            return
+
+        # 1st time: register pending proposal and send PM to target
+        pending_social_proposals[prop_key] = {
+            "requester_id": requester.id,
+            "requester_name": requester.full_name,
+            "target_id": target.id,
+            "target_name": target.full_name,
+            "chat_id": chat.id,
+            "kind": "bro",
+            "time": time.time()
+        }
+
+        # Reply in group
+        await msg.reply_text(
+            f"👤 <b>{html.escape(requester.full_name)}</b> <b>{html.escape(target.full_name)}</b> ga birodarlik (/bro) so'rovi yubordi. Qabul qilsa, xabar beraman!",
+            parse_mode="HTML"
+        )
+
+        # Dispatch proposal to target in PM
+        pm_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🟢 Qabul qilish", callback_data=f"soc_acc:{requester.id}:{target.id}:bro:{chat.id}"),
+                InlineKeyboardButton("🔴 Rad etish", callback_data=f"soc_rej:{requester.id}:{target.id}:bro:{chat.id}")
+            ]
+        ])
+        pm_text = (
+            f"💌 <b>{html.escape(requester.full_name)}</b> sizga birodarlik (/bro) taklifini yubordi! Qabul qilasizmi?"
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=target.id,
+                text=pm_text,
+                reply_markup=pm_kb,
+                parse_mode="HTML"
+            )
+        except Exception:
+            from config import BOT_USERNAME
+            warn_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔵 💬 Botga o'tish ↗", url=f"https://t.me/{BOT_USERNAME}?start=bro")]
+            ])
+            await msg.reply_text(
+                f"⚠️ <b>{html.escape(target.full_name)}</b> botga start bosmagan! Taklifni qabul qilish uchun avval botimizga kiring: @{BOT_USERNAME}",
+                reply_markup=warn_kb,
+                parse_mode="HTML"
+            )
+        return
+
+    # Non-group fallback
     await db.execute("""
         INSERT INTO social_links (user_id, other_id, kind, created_at)
         VALUES (?, ?, 'bro', datetime('now')), (?, ?, 'bro', datetime('now'))
@@ -325,14 +498,8 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💰 Qoldi: <b>{amount}/{amount} ta Gold</b>"
     )
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎁 Gold olish (1 dona)", callback_data=f"claim_gold:{drop_id}")]
+        [InlineKeyboardButton("🟡 🎁 Gold olish (1 dona)", callback_data=f"claim_gold:{drop_id}")]
     ])
-
-    try:
-        from core.visuals import send_animated_dice_effect
-        await send_animated_dice_effect(context.bot, chat.id, emoji="🎲")
-    except Exception as e:
-        log.debug("Gold drop dice error: %s", e)
 
     sent_msg = await context.bot.send_message(
         chat_id=chat.id,

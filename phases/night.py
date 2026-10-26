@@ -139,7 +139,10 @@ def get_role_action_buttons(game: Dict[str, Any], uid: int) -> Optional[InlineKe
 
     from core.navigation import return_to_group_button
     buttons.append([
-        InlineKeyboardButton("📜 Vasiyatnoma yozish (/will)", callback_data=f"act:will_help:{uid}"),
+        InlineKeyboardButton("😴 Bu tun dam olish", callback_data=f"act:sleep:{uid}"),
+        InlineKeyboardButton("📜 Vasiyatnoma yozish (/will)", callback_data=f"act:will_help:{uid}")
+    ])
+    buttons.append([
         return_to_group_button(game)
     ])
     return InlineKeyboardMarkup(buttons)
@@ -154,9 +157,13 @@ def get_target_selection_keyboard(game: Dict[str, Any], actor: int, action: str)
     rows = []
 
     for target in alive_players:
-        # Rules on self-target
-        if target == actor and action not in ("protect", "will_help"):
-            continue
+        # Rules on self-target: Doctor self-heal and Bodyguard self-protect strictly max 1 time per game
+        if target == actor:
+            if action in ("protect", "guard"):
+                if actor in game.get("self_protect_used", set()) or game.get("doctor_self_heal_used", {}).get(actor, False):
+                    continue
+            elif action != "will_help":
+                continue
         # Mafia members cannot kill teammates
         if action == "kill" and ROLES.get(game["roles"].get(target)) == "red":
             continue
@@ -166,6 +173,9 @@ def get_target_selection_keyboard(game: Dict[str, Any], actor: int, action: str)
             InlineKeyboardButton(f"👤 {name}", callback_data=f"tgt:{action}:{actor}:{target}")
         ])
 
+    rows.append([
+        InlineKeyboardButton("😴 Dam olish (Hech kimni tanlamaslik)", callback_data=f"act:sleep:{actor}")
+    ])
     rows.append([
         InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_action"),
         return_to_group_button(game)
@@ -308,6 +318,21 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
     death_causes: Dict[int, List[str]] = {}
     crime_clues: Dict[int, Dict[str, str]] = {}
     saved_by_doc: Set[int] = set()
+
+    # 0. Broadcast sleep message for active roles who took no action
+    from core.atmospheric_feed import broadcast_role_sleep
+    for uid in game.get("players", []):
+        if not game["alive"].get(uid, False):
+            continue
+        role = game.get("roles", {}).get(uid)
+        if role in NIGHT_ACTIVE_ROLES and uid not in game.get("night_done", set()):
+            det_alive = any(
+                game["alive"].get(u, False) and game["roles"].get(u) == "Detektiv"
+                for u in game.get("players", [])
+            )
+            if role == "Sherif" and det_alive and uid not in game.get("sheriff_promoted", set()):
+                continue
+            await broadcast_role_sleep(context, game, uid)
 
     # 1. PRIORITY 1: ROLEBLOCKS (Begona, Maftunkor)
     blocked = game.get("blocked_roles", {})
@@ -458,19 +483,30 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
         # Bodyguard (Tansoqchi) protection duel check
         guard_uid = game.get("guarded_by", {}).get(target)
         if guard_uid and game["alive"].get(guard_uid, False):
-            # Target is saved, Guard and Attacker duel to death
-            deaths.add(guard_uid)
-            deaths.add(attacker)
-            death_causes.setdefault(guard_uid, []).append("Tansoqchi mudofaasida qahramonlarcha halok bo'ldi")
-            death_causes.setdefault(attacker, []).append("Tansoqchining qarshi zarbasidan yiqildi")
-            try:
-                await context.bot.send_message(
-                    chat_id=target,
-                    text="🛡️ *Tansoqchi sizni qutqardi!* U o'z joni evaziga qotilni yo'q qildi."
-                )
-            except Exception:
-                pass
-            continue
+            if guard_uid == target:
+                # Bodyguard self-protect: target survives
+                try:
+                    await context.bot.send_message(
+                        chat_id=target,
+                        text="🛡️ *O'ZINGIZNI HIMOYA QILDINGIZ!* Sizga qilingan tungi hujumni qaytardingiz va omon qoldingiz."
+                    )
+                except Exception:
+                    pass
+                continue
+            else:
+                # Target is saved, Guard and Attacker duel to death
+                deaths.add(guard_uid)
+                deaths.add(attacker)
+                death_causes.setdefault(guard_uid, []).append("Tansoqchi mudofaasida qahramonlarcha halok bo'ldi")
+                death_causes.setdefault(attacker, []).append("Tansoqchining qarshi zarbasidan yiqildi")
+                try:
+                    await context.bot.send_message(
+                        chat_id=target,
+                        text="🛡️ *Tansoqchi sizni qutqardi!* U o'z joni evaziga qotilni yo'q qildi."
+                    )
+                except Exception:
+                    pass
+                continue
 
         # Doctor Protection check
         if target in game.get("protected", set()):
@@ -703,10 +739,11 @@ async def complete_night_resolution(
                 sheriffs_to_promote.add(p_uid)
         for sh_id in sheriffs_to_promote:
             game.setdefault("sheriff_promoted", set()).add(sh_id)
+            game["roles"][sh_id] = "Detektiv"
             try:
                 await context.bot.send_message(
                     chat_id=sh_id,
-                    text="🕵️‍♂️ *DETEKTIV VAFOT ETDI!*\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz.",
+                    text="🕵️‍♂️ *DETEKTIV VAFOT ETDI!*\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz va Detektivga aylandingiz.",
                     reply_markup=return_to_group_keyboard(game)
                 )
             except Exception:

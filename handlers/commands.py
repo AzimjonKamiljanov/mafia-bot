@@ -22,20 +22,20 @@ log = logging.getLogger("detektiv.handlers.commands")
 def main_menu_keyboard(is_admin_user: bool = False) -> InlineKeyboardMarkup:
     rows = [
         [
-            InlineKeyboardButton("🎮 O'yin ochish", callback_data="menu_game"),
-            InlineKeyboardButton("🛒 Do'kon (Shop)", callback_data="menu_shop")
+            InlineKeyboardButton("🟢 🎮 O'yin ochish", callback_data="menu_game"),
+            InlineKeyboardButton("🟣 🛒 Do'kon (Shop)", callback_data="menu_shop")
         ],
         [
-            InlineKeyboardButton("💰 Balans", callback_data="menu_balance"),
-            InlineKeyboardButton("🏆 TOP Reyting", callback_data="menu_rating")
+            InlineKeyboardButton("🟡 💰 Balans", callback_data="menu_balance"),
+            InlineKeyboardButton("🏆 🥇 TOP Reyting", callback_data="menu_rating")
         ],
         [
-            InlineKeyboardButton("👤 Profil", callback_data="menu_profile"),
-            InlineKeyboardButton("📜 Vasiyatnoma", callback_data="menu_will")
+            InlineKeyboardButton("🔵 👤 Profil", callback_data="menu_profile"),
+            InlineKeyboardButton("📜 ✍️ Vasiyatnoma", callback_data="menu_will")
         ],
         [
-            InlineKeyboardButton("📖 Rollar qo'llanmasi", callback_data="menu_guide"),
-            InlineKeyboardButton("🛡️ Sindikat / Klan", callback_data="menu_clan")
+            InlineKeyboardButton("📖 🎭 Rollar qo'llanmasi", callback_data="menu_guide"),
+            InlineKeyboardButton("🛡️ ⚔️ Sindikat / Klan", callback_data="menu_clan")
         ]
     ]
     if is_admin_user:

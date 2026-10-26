@@ -76,8 +76,8 @@ async def send_atmospheric_message(
         except Exception as e:
             log.warning("Could not dispatch audio file %s: %s", audio_path, e)
 
-    # Trigger native interactive 3D physics animation if applicable
-    if sound_type:
+    # Trigger native interactive 3D physics animation if applicable (PM only, never in groups)
+    if sound_type and chat_id > 0:
         try:
             from core.visuals import send_animated_dice_effect
             if sound_type == "execution":

@@ -50,6 +50,87 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if await handle_admin_callback(update, context):
             return
 
+    # Social callbacks (Para / Bro accept or reject)
+    if data.startswith("soc_acc:") or data.startswith("soc_rej:"):
+        parts = data.split(":")
+        is_accept = data.startswith("soc_acc:")
+        req_id = int(parts[1])
+        tgt_id = int(parts[2])
+        kind = parts[3]
+        orig_chat_id = int(parts[4])
+
+        if uid != tgt_id:
+            await q.answer("❌ Bu taklif sizga tegishli emas!", show_alert=True)
+            return
+
+        from handlers.social import pending_social_proposals
+        from database.db import get_db
+        prop_key = (req_id, tgt_id, kind)
+        prop = pending_social_proposals.pop(prop_key, None)
+
+        req_user = await get_user(req_id)
+        req_name = req_user["name"] if req_user else f"Foydalanuvchi_{req_id}"
+        tgt_name = user.full_name or user.first_name
+        kind_title = "juftlik (Para)" if kind == "para" else "birodarlik (Bro)"
+
+        if not is_accept:
+            await q.answer("Taklif rad etildi.")
+            await q.edit_message_text(f"🔴 Siz {req_name}ning {kind_title} taklifini rad etdingiz.")
+            try:
+                await context.bot.send_message(
+                    chat_id=req_id,
+                    text=f"💔 <b>{html.escape(tgt_name)}</b> sizning {kind_title} taklifingizni rad etdi.",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            return
+
+        # Check existing partners
+        db = await get_db()
+        async with db.execute("SELECT other_id FROM social_links WHERE user_id = ? AND kind = ?", (req_id, kind)) as cursor:
+            req_has = await cursor.fetchone()
+        async with db.execute("SELECT other_id FROM social_links WHERE user_id = ? AND kind = ?", (tgt_id, kind)) as cursor:
+            tgt_has = await cursor.fetchone()
+
+        if req_has or tgt_has:
+            await q.answer("❌ Tomonlardan birida allaqachon bog'lanish mavjud!", show_alert=True)
+            await q.edit_message_text("❌ Bog'lanish amalga oshmadi: tomonlardan birida allaqachon faol rishta mavjud.")
+            return
+
+        await db.execute("""
+            INSERT INTO social_links (user_id, other_id, kind, created_at)
+            VALUES (?, ?, ?, datetime('now')), (?, ?, ?, datetime('now'))
+            ON CONFLICT DO NOTHING
+        """, (req_id, tgt_id, kind, tgt_id, req_id, kind))
+        await db.commit()
+
+        await q.answer("🎉 Taklif qabul qilindi!")
+        await q.edit_message_text(f"✅ Siz <b>{html.escape(req_name)}</b> bilan muvaffaqiyatli {kind_title} bo'ldingiz!", parse_mode="HTML")
+
+        # Notify requester in PM
+        try:
+            await context.bot.send_message(
+                chat_id=req_id,
+                text=f"💍 <b>{html.escape(tgt_name)}</b> sizning {kind_title} taklifingizni qabul qildi!",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+        # Announce in group
+        try:
+            icon = "💍" if kind == "para" else "🤝"
+            term = "juftlik (Para)" if kind == "para" else "birodar (Bro)"
+            await context.bot.send_message(
+                chat_id=orig_chat_id,
+                text=f"{icon} <b>{html.escape(req_name)}</b> va <b>{html.escape(tgt_name)}</b> muvaffaqiyatli {term} bo'ldilar!",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+        return
+
     # 0. Gold Drop Claim Callback
     if data.startswith("claim_gold:"):
         drop_id = data.split(":")[1]
@@ -339,6 +420,22 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.answer("❌ Hozir tungi faza emas.", show_alert=True)
             return
 
+        if action == "sleep":
+            await q.answer("😴 Siz bu tun dam olishga qaror qildingiz.", show_alert=True)
+            game.setdefault("night_done", set()).add(actor)
+            record_player_activity(game, actor)
+            from core.atmospheric_feed import broadcast_role_sleep
+            await broadcast_role_sleep(context, game, actor)
+            try:
+                await q.edit_message_text(
+                    "😴 *Bu tun hech kimni tanlamadingiz — dam oldingiz.*\nTong otishini kuting!",
+                    reply_markup=return_to_group_keyboard(game),
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+            return
+
         if action == "will_help":
             await q.answer()
             await q.message.reply_text(
@@ -511,9 +608,20 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
         elif action == "protect":
+            if target == actor:
+                if actor in game.setdefault("self_protect_used", set()) or game.get("doctor_self_heal_used", {}).get(actor, False):
+                    await q.answer("❌ O'zingizni davolashdan har o'yinda faqat 1 marta foydalana olasiz!", show_alert=True)
+                    return
+                game["self_protect_used"].add(actor)
+                game.setdefault("doctor_self_heal_used", {})[actor] = True
             game.setdefault("protected", set()).add(target)
             game.setdefault("protected_by", {})[target] = actor
         elif action == "guard":
+            if target == actor:
+                if actor in game.setdefault("self_protect_used", set()):
+                    await q.answer("❌ O'zingizni himoya qilishdan har o'yinda faqat 1 marta foydalana olasiz!", show_alert=True)
+                    return
+                game["self_protect_used"].add(actor)
             game.setdefault("guarded_by", {})[target] = actor
         elif action == "lawyer":
             game.setdefault("lawyer_clients", {})[actor] = target

@@ -65,7 +65,7 @@ def lobby_keyboard(chat_id: int, include_bot_link: bool = False) -> InlineKeyboa
     ]
     if include_bot_link:
         rows.append([
-            InlineKeyboardButton("💬 Botga o'tish", url=get_bot_deep_link(chat_id, "act"))
+            InlineKeyboardButton("🔵 💬 Botga o'tish", url=get_bot_deep_link(chat_id, "act"))
         ])
     return InlineKeyboardMarkup(rows)
 
@@ -383,7 +383,7 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
             "🌙 Shahar uyquga ketmoqda... Tungi harakatlar boshlandi!"
         ),
         reply_markup=InlineKeyboardMarkup([
-            [bot_action_button(chat_id, "💬 Botga o'tish (Amallar/Ovoz)")]
+            [bot_action_button(chat_id, "🔵 💬 Botga o'tish (Amallar/Ovoz)")]
         ]),
         parse_mode="Markdown"
     )

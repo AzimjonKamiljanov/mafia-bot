@@ -281,14 +281,8 @@ async def finish_game(
     text = "\n".join(lines)
     stats_url = f"https://t.me/{BOT_USERNAME}?start=stats"
     reply_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Statistika ↗", url=stats_url)]
+        [InlineKeyboardButton("🟣 📊 Statistika ↗", url=stats_url)]
     ])
-
-    try:
-        from core.visuals import send_animated_dice_effect
-        await send_animated_dice_effect(context.bot, chat_id, emoji="🎯" if winning_team == "blue" else "🎲")
-    except Exception as e:
-        log.debug("Victory animated dice effect error: %s", e)
 
     try:
         await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_kb)
