@@ -150,6 +150,8 @@ _CHAR_TO_KEY: Dict[str, str] = {
     # 3191530815439765550
     "🎬": "game_start",
     "🎮": "game_start",
+    "🎲": "game_start",
+    "🎰": "game_start",
     "📢": "trigger",
     "📣": "trigger",
     "🚀": "trigger",
@@ -167,6 +169,7 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🛡️": "item_shield",
     "🛡": "item_shield",
     "🔒": "item_shield",
+    "🔑": "item_shield",
     "🎒": "bag",
     "🛒": "cart",
     "🛍️": "shop_header",
@@ -183,10 +186,20 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "📊": "trigger",
     "➕": "trigger",
     "⬅️": "trigger",
+    "➡️": "trigger",
+    "◀️": "trigger",
+    "▶️": "trigger",
     "↗️": "trigger",
     "↗": "trigger",
     "👇": "trigger",
     "👋": "trigger",
+    "🔄": "trigger",
+    "🔁": "trigger",
+    "🗣️": "trigger",
+    "🗣": "trigger",
+    "🔔": "trigger",
+    "⛽": "trigger",
+    "😂": "trigger",
 
     # 1269403972611866648
     "🔪": "mafia",
@@ -197,6 +210,9 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🔫": "mafia",
     "🥷": "mafia",
     "🐺": "mafia",
+    "💣": "mafia",
+    "💥": "mafia",
+    "🦎": "mafia",
 
     # 919985748604617114
     "👑": "boss",
@@ -214,9 +230,15 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "👮": "sheriff",
     "🔍": "investigation",
     "🔎": "investigation",
+    "❓": "investigation",
+    "❔": "investigation",
     "📜": "item_doc",
     "📄": "item_doc",
+    "📝": "item_doc",
+    "✍️": "item_doc",
+    "✍": "item_doc",
     "👤": "profile",
+    "🆔": "profile",
     "🕶️": "badge_detective",
     "🕶": "badge_detective",
     "🚶": "detective",
@@ -225,6 +247,12 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🕴️": "detective",
     "🕴": "detective",
     "💃": "detective",
+    "🗺️": "investigation",
+    "🗺": "investigation",
+    "👁️": "investigation",
+    "👁": "investigation",
+    "🧙🏻": "detective",
+    "🧙": "detective",
 
     # 3191530815439765548
     "🩺": "doctor",
@@ -232,6 +260,9 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "💊": "doctor_save",
     "🩹": "heal",
     "🏥": "doctor",
+    "👨🏼‍⚕": "doctor",
+    "👨‍⚕️": "doctor",
+    "👨‍⚕": "doctor",
 
     # 4158409751421517834
     "🌙": "night",
@@ -243,6 +274,8 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🌫️": "night",
     "🌫": "night",
     "👻": "graveyard",
+    "🤫": "night",
+    "⚫": "night",
 
     # 336920350212227127
     "☀️": "day",
@@ -257,6 +290,8 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🏛️": "voting",
     "🏛": "voting",
     "🔨": "voting",
+    "⚪": "day",
+    "🧊": "voting",
 
     # 3974262500324540463
     "💀": "dead",
@@ -269,11 +304,17 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "✖️": "stats_losses",
     "🛑": "dead",
     "⛔": "dead",
+    "🏃": "dead",
+    "💔": "dead",
+    "😔": "stats_losses",
+    "👎": "stats_losses",
 
     # 1471004892762996745
     "👥": "civilian",
     "🏘️": "civilian_team",
     "🏘": "civilian_team",
+    "🏙️": "civilian_team",
+    "🏙": "civilian_team",
     "🏆": "stats_wins",
     "🥇": "gold",
     "🥈": "stats_wins",
@@ -290,10 +331,24 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🤝": "bro",
     "🔵": "civilian_team",
     "🟢": "civilian_win",
+    "🟣": "civilian_team",
     "💵": "coin",
     "💳": "coin",
+    "💸": "coin",
     "🎖️": "badge_target",
     "🎖": "badge_target",
+    "✅": "civilian_win",
+    "✓": "civilian_win",
+    "☑️": "civilian_win",
+    "☑": "civilian_win",
+    "⭐": "gold",
+    "💌": "gift",
+    "📩": "gift",
+    "🪐": "gem",
+    "🪩": "gem",
+    "👍": "civilian_win",
+    "👏": "civilian_win",
+    "💪": "civilian_win",
 
     # 1145788388561911824
     "🩸": "mafia_win",
@@ -313,7 +368,42 @@ _CHAR_TO_KEY: Dict[str, str] = {
     "🕒": "timer",
     "🕓": "timer",
     "🕔": "timer",
+    "⚠️": "warning",
+    "❗": "warning",
+    "❗️": "warning",
+    "‼️": "warning",
+    "🚨": "warning",
 }
+
+# Verified official Telegram Custom Animated Emoji IDs (MTProto tested & validated)
+REAL_TELEGRAM_EMOJI_MAP: Dict[str, str] = {
+    "3191530815439765550": "5361741454685256344",  # Game / announcement (GameEmoji)
+    "1269403972611866648": "5373239082136650704",  # Knife / mafia (GameEmoji)
+    "919985748604617114":  "5229011542011299168",  # Crown / don (GameEmoji)
+    "1740555807604342805": "5231012545799666522",  # Detective search (NewsEmoji)
+    "3191530815439765548": "5463081281048818043",  # Doctor medicine (GameEmoji)
+    "4158409751421517834": "5226662903569989373",  # Night moon (GameEmoji)
+    "336920350212227127":  "5373021138316186413",  # Day sun (GameEmoji)
+    "3974262500324540463": "5463250708918711044",  # Dead skull (GameEmoji)
+    "1471004892762996745": "5453957997418004470",  # Civilian / Town (GameEmoji)
+    "1145788388561911824": "5228962845672096235",  # Evil win (GameEmoji)
+    "3024877442880766280": "5373236586760651455",  # Timer / Clock (GameEmoji)
+}
+
+def resolve_all_tg_emoji_to_real_telegram(text: str) -> str:
+    """
+    Map configured IDs (such as Discord snowflakes) to verified official Telegram Custom Emoji IDs.
+    Preserves fallback characters and ensures Telegram MTProto and Bot API render true moving animated emojis.
+    """
+    if not text or not isinstance(text, str) or "<tg-emoji" not in text:
+        return text
+
+    def _sub(m):
+        eid = m.group(2)
+        real = REAL_TELEGRAM_EMOJI_MAP.get(eid, eid)
+        return f'<tg-emoji emoji-id="{real}">'
+
+    return re.sub(r'<tg-emoji\s+(emoji-id|document-id)="(\d+)">', _sub, text)
 
 # Precompile regex for known characters sorted longest first
 _KNOWN_KEYS_SORTED = sorted(_CHAR_TO_KEY.keys(), key=len, reverse=True)

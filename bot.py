@@ -346,7 +346,13 @@ from telegram.request import HTTPXRequest
 from telegram.ext import ExtBot
 
 class SafeExtBot(ExtBot):
-    """ExtBot subclass that strictly enforces parse_mode='HTML' for <tg-emoji> tags, enriches emojis to animated custom emojis, and gracefully retries on entity parsing failures."""
+    """
+    ExtBot subclass that strictly enforces parse_mode='HTML' for <tg-emoji> tags,
+    enriches emojis to animated custom emojis, auto-adapts to official Telegram
+    custom emoji IDs upon Document_invalid, and gracefully retries on entity parsing failures.
+    """
+    _needs_real_telegram_ids: bool = False
+
     async def _do_post(self, endpoint, data=None, *args, **kwargs):
         if data and isinstance(data, dict):
             for k in ("text", "caption"):
@@ -365,32 +371,52 @@ class SafeExtBot(ExtBot):
                         from core.emojis import enrich_with_animated_emojis
                         data[k] = enrich_with_animated_emojis(data[k])
                     elif data.get("parse_mode") is None:
-                        import html
-                        from core.emojis import _CHAR_TO_KEY, enrich_with_animated_emojis
-                        if any(char in data[k] for char in _CHAR_TO_KEY):
+                        from core.emojis import _COMBINED_EMOJI_RE, enrich_with_animated_emojis
+                        if _COMBINED_EMOJI_RE.search(data[k]):
+                            import html
                             escaped = html.escape(data[k])
                             enriched = enrich_with_animated_emojis(escaped)
                             if enriched != escaped:
                                 data[k] = enriched
                                 data["parse_mode"] = "HTML"
+
+                    # 3. If real Telegram IDs were previously flagged as required, translate proactively
+                    if "<tg-emoji" in data[k] and self._needs_real_telegram_ids:
+                        from core.emojis import resolve_all_tg_emoji_to_real_telegram
+                        data[k] = resolve_all_tg_emoji_to_real_telegram(data[k])
+
         try:
             return await super()._do_post(endpoint, data, *args, **kwargs)
         except Exception as e:
             err_msg = str(e).lower()
-            if "can't parse entities" in err_msg and data and isinstance(data, dict):
-                log.warning("Telegram BadRequest entity parsing error: %s. Retrying with sanitized tags...", e)
+            if any(term in err_msg for term in ("document_invalid", "can't parse entities", "custom_emoji")) and data and isinstance(data, dict):
+                log.warning("Telegram BadRequest error (%s). Adapting with verified Telegram Custom Emoji IDs...", e)
+                self._needs_real_telegram_ids = True
+                self.__class__._needs_real_telegram_ids = True
                 retry_data = dict(data)
                 for k in ("text", "caption"):
                     if k in retry_data and isinstance(retry_data[k], str) and "<tg-emoji" in retry_data[k]:
-                        from core.visuals import strip_anim_emoji_tags
-                        retry_data[k] = strip_anim_emoji_tags(retry_data[k])
+                        from core.emojis import resolve_all_tg_emoji_to_real_telegram
+                        retry_data[k] = resolve_all_tg_emoji_to_real_telegram(retry_data[k])
                 try:
                     return await super()._do_post(endpoint, retry_data, *args, **kwargs)
                 except Exception as retry_err:
-                    if "can't parse entities" in str(retry_err).lower():
-                        retry_data_plain = dict(retry_data)
-                        retry_data_plain.pop("parse_mode", None)
-                        return await super()._do_post(endpoint, retry_data_plain, *args, **kwargs)
+                    retry_msg = str(retry_err).lower()
+                    if any(term in retry_msg for term in ("document_invalid", "can't parse entities", "custom_emoji")):
+                        log.warning("Telegram Custom Emoji retry failed (%s). Stripping tags as fallback...", retry_err)
+                        strip_data = dict(retry_data)
+                        from core.visuals import strip_anim_emoji_tags
+                        for k in ("text", "caption"):
+                            if k in strip_data and isinstance(strip_data[k], str) and "<tg-emoji" in strip_data[k]:
+                                strip_data[k] = strip_anim_emoji_tags(strip_data[k])
+                        try:
+                            return await super()._do_post(endpoint, strip_data, *args, **kwargs)
+                        except Exception as final_err:
+                            if "can't parse entities" in str(final_err).lower():
+                                strip_data_plain = dict(strip_data)
+                                strip_data_plain.pop("parse_mode", None)
+                                return await super()._do_post(endpoint, strip_data_plain, *args, **kwargs)
+                            raise
                     raise
             raise
 

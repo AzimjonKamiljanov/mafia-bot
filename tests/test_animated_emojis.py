@@ -74,6 +74,7 @@ def test_enrich_inside_html_structures():
 @pytest.mark.asyncio
 async def test_safe_ext_bot_enriches_outgoing_html():
     """Verify SafeExtBot._do_post enriches unicode emojis into animated custom emojis on outgoing requests."""
+    SafeExtBot._needs_real_telegram_ids = False
     bot = SafeExtBot("123456:TEST_TOKEN")
     captured = []
 
@@ -128,3 +129,95 @@ async def test_boost_cmd_and_goal_cmd_animated_emoji_coverage():
     # Check key active IDs in goal
     assert 'emoji-id="1471004892762996745"' in goal_text  # civilian
     assert 'emoji-id="1269403972611866648"' in goal_text  # mafia
+
+
+def test_common_symbols_mapped_and_enriched():
+    """Verify common emojis (checkmark, warning, question, bomb, dice, etc.) are recognized and enriched."""
+    from core.emojis import _CHAR_TO_KEY, enrich_with_animated_emojis, REAL_TELEGRAM_EMOJI_MAP, resolve_all_tg_emoji_to_real_telegram
+
+    symbols = ["✅", "⚠️", "❓", "❗", "🚨", "💣", "🎲", "🧊", "🟣", "💸", "📝"]
+    for s in symbols:
+        assert s in _CHAR_TO_KEY, f"Symbol {s} must be in _CHAR_TO_KEY"
+
+    res = enrich_with_animated_emojis("✅ Muvaffaqiyatli! ⚠️ Diqqat! 💣 Portlash! 🎲 O'yin!")
+    assert '<tg-emoji emoji-id="1471004892762996745">✅</tg-emoji>' in res
+    assert '<tg-emoji emoji-id="3024877442880766280">⚠️</tg-emoji>' in res
+    assert '<tg-emoji emoji-id="1269403972611866648">💣</tg-emoji>' in res
+    assert '<tg-emoji emoji-id="3191530815439765550">🎲</tg-emoji>' in res
+
+    # Test resolution to official Telegram Custom Emoji IDs
+    real_resolved = resolve_all_tg_emoji_to_real_telegram(res)
+    assert '<tg-emoji emoji-id="5453957997418004470">✅</tg-emoji>' in real_resolved
+    assert '<tg-emoji emoji-id="5373236586760651455">⚠️</tg-emoji>' in real_resolved
+    assert '<tg-emoji emoji-id="5373239082136650704">💣</tg-emoji>' in real_resolved
+    assert '<tg-emoji emoji-id="5361741454685256344">🎲</tg-emoji>' in real_resolved
+
+
+@pytest.mark.asyncio
+async def test_safe_ext_bot_enriches_none_parse_mode_with_generic_emojis():
+    """Verify SafeExtBot._do_post detects unicode emojis when parse_mode is None and converts to HTML."""
+    SafeExtBot._needs_real_telegram_ids = False
+    bot = SafeExtBot("123456:TEST_TOKEN")
+    captured = []
+
+    async def mock_do_post(self, endpoint, data=None, *args, **kwargs):
+        captured.append(dict(data) if data else {})
+        return {"ok": True, "result": {"message_id": 999}}
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(ExtBot, "_do_post", mock_do_post)
+
+        # Message with parse_mode=None and checkmark emoji
+        await bot._do_post("sendMessage", {
+            "chat_id": 111,
+            "text": "✅ Siz lobbiga qo'shildingiz!",
+            "parse_mode": None
+        })
+
+        assert len(captured) == 1
+        out = captured[0]
+        assert out["parse_mode"] == "HTML"
+        assert '<tg-emoji emoji-id="1471004892762996745">✅</tg-emoji>' in out["text"]
+
+
+@pytest.mark.asyncio
+async def test_safe_ext_bot_adapts_to_real_ids_on_document_invalid():
+    """Verify that when Telegram API raises Document_invalid, SafeExtBot auto-adapts to official Telegram IDs and retries."""
+    from telegram.error import BadRequest
+    bot = SafeExtBot("123456:TEST_TOKEN")
+    bot._needs_real_telegram_ids = False
+    attempts = []
+
+    async def mock_do_post(self, endpoint, data=None, *args, **kwargs):
+        attempts.append(dict(data) if data else {})
+        if len(attempts) == 1:
+            # Simulate real Telegram rejecting unknown Discord snowflake ID
+            raise BadRequest("Document_invalid")
+        return {"ok": True, "result": {"message_id": 1001}}
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(ExtBot, "_do_post", mock_do_post)
+
+        res = await bot._do_post("sendMessage", {
+            "chat_id": 111,
+            "text": '<tg-emoji emoji-id="3191530815439765550">🎮</tg-emoji> Boshlash',
+            "parse_mode": "HTML"
+        })
+
+        assert res["ok"] is True
+        assert len(attempts) == 2
+        # Attempt 1 sent configured ID
+        assert 'emoji-id="3191530815439765550"' in attempts[0]["text"]
+        # Attempt 2 adapted to real Telegram Custom Emoji ID
+        assert 'emoji-id="5361741454685256344"' in attempts[1]["text"]
+        assert bot._needs_real_telegram_ids is True
+
+        # Subsequent call should adapt proactively
+        await bot._do_post("sendMessage", {
+            "chat_id": 111,
+            "text": '<tg-emoji emoji-id="1269403972611866648">🔪</tg-emoji> Mafia',
+            "parse_mode": "HTML"
+        })
+        assert len(attempts) == 3
+        assert 'emoji-id="5373239082136650704"' in attempts[2]["text"]
+
