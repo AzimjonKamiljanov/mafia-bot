@@ -92,8 +92,10 @@ async def send_atmospheric_message(
     if cue:
         full_text = f"{cue}\n\n{text}"
 
-    # Strip custom HTML tg-emoji tags if sending with Markdown or plain text
-    if parse_mode != "HTML":
+    # If <tg-emoji> tag is in text, Telegram strictly requires HTML parse mode
+    if "<tg-emoji" in full_text:
+        parse_mode = "HTML"
+    elif parse_mode != "HTML":
         from core.visuals import strip_anim_emoji_tags
         full_text = strip_anim_emoji_tags(full_text)
 

@@ -346,21 +346,24 @@ from telegram.request import HTTPXRequest
 from telegram.ext import ExtBot
 
 class SafeExtBot(ExtBot):
-    """ExtBot subclass that automatically sanitizes <tg-emoji> tags and gracefully retries on entity parsing failures."""
+    """ExtBot subclass that guarantees parse_mode='HTML' for <tg-emoji> tags and gracefully retries with sanitized tags on entity parsing failures."""
     async def _do_post(self, endpoint, data=None, *args, **kwargs):
         if data and isinstance(data, dict):
             for k in ("text", "caption"):
                 if k in data and isinstance(data[k], str) and "<tg-emoji" in data[k]:
-                    from core.visuals import strip_anim_emoji_tags
-                    data[k] = strip_anim_emoji_tags(data[k])
+                    if not data.get("parse_mode"):
+                        data["parse_mode"] = "HTML"
         try:
             return await super()._do_post(endpoint, data, *args, **kwargs)
         except Exception as e:
             err_msg = str(e).lower()
-            if "can't parse entities" in err_msg and data and isinstance(data, dict) and "parse_mode" in data:
-                log.warning("Telegram BadRequest entity parsing error: %s. Retrying without parse_mode...", e)
+            if "can't parse entities" in err_msg and data and isinstance(data, dict):
+                log.warning("Telegram BadRequest entity parsing error: %s. Retrying with sanitized tags...", e)
                 retry_data = dict(data)
-                retry_data.pop("parse_mode", None)
+                for k in ("text", "caption"):
+                    if k in retry_data and isinstance(retry_data[k], str) and "<tg-emoji" in retry_data[k]:
+                        from core.visuals import strip_anim_emoji_tags
+                        retry_data[k] = strip_anim_emoji_tags(retry_data[k])
                 return await super()._do_post(endpoint, retry_data, *args, **kwargs)
             raise
 

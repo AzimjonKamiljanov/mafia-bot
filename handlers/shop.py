@@ -7,6 +7,7 @@ from database.models import (
     ensure_user, get_user, change_balance, get_inventory, add_item,
     get_badge, set_badge, deactivate_badge, get_owned_badges, save_owned_badge, is_admin
 )
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.handlers.shop")
 
@@ -41,11 +42,11 @@ async def shop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-        "🛍️ *Detektiv Do'koni (Shop)*\n\n"
+        f"{tg_emoji('cart', '🛍️', 'SHOP')} <b>Detektiv Do'koni (Shop)</b>\n\n"
         "O'yinda ustunlik beruvchi maxsus buyumlar, himoyalar va nufuzli unvonlar (Badges).\n\n"
         "Kerakli bo'limni tanlang:"
     )
-    await msg.reply_text(text, reply_markup=shop_main_keyboard(), parse_mode="Markdown")
+    await msg.reply_text(text, reply_markup=shop_main_keyboard(), parse_mode="HTML")
 
 async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -67,9 +68,9 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if data == "menu_shop" or data == "shop_main":
         await q.answer()
         await q.edit_message_text(
-            "🛒 *Detektiv Do'koni*\nKerakli bo'limni tanlang:",
+            f"{tg_emoji('cart', '🛒', 'SHOP')} <b>Detektiv Do'koni</b>\nKerakli bo'limni tanlang:",
             reply_markup=shop_main_keyboard(),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         return
 
@@ -80,9 +81,9 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             rows.append([InlineKeyboardButton(f"{name} — {price} 🪙", callback_data=f"buy_item:coin:{k}")])
         rows.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="shop_main")])
         await q.edit_message_text(
-            "🪙 *Coin Shop*\nTangalaringiz evaziga buyumlar xarid qiling:",
+            f"{tg_emoji('coin', '🪙', 'SHOP')} <b>Coin Shop</b>\nTangalaringiz evaziga buyumlar xarid qiling:",
             reply_markup=InlineKeyboardMarkup(rows),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         return
 
@@ -93,9 +94,9 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             rows.append([InlineKeyboardButton(f"{name} — {price} 🥇", callback_data=f"buy_item:gold:{k}")])
         rows.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="shop_main")])
         await q.edit_message_text(
-            "🥇 *Gold Shop*\nOltin evaziga nufuzli belgilar (Badge) va noyob qasos qurollari:",
+            f"{tg_emoji('gold', '🥇', 'SHOP')} <b>Gold Shop</b>\nOltin evaziga nufuzli belgilar (Badge) va noyob qasos qurollari:",
             reply_markup=InlineKeyboardMarkup(rows),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         return
 
@@ -113,17 +114,17 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         extra_vote = inv.get("extra_vote", 0)
 
         lines = [
-            "📦 *Mening Buyumlarim va Belgilarim*",
+            f"{tg_emoji('bag', '📦', 'SHOP')} <b>Mening Buyumlarim va Belgilarim</b>",
             "",
-            f"🏷️ Faol belgi: *{active_badge}*",
+            f"🏷️ Faol belgi: <b>{active_badge}</b>",
             "",
-            "🎒 Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):",
-            f"• 🔪 Qasos pichog'i: *{knife}*",
-            f"• 📄 Soxta hujjat: *{fake_doc}*",
-            f"• 👑 Hukmdan himoya: *{ruler_prot}*",
-            f"• 🛡️ Tungi himoya: *{prot}*",
-            f"• 🗳️ Qo'shimcha ovoz: *{extra_vote}*",
-            f"• 🌹 Gul: *{rose}*"
+            "🎒 <b>Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):</b>",
+            f"• {tg_emoji('item_knife', '🔪', 'SHOP')} Qasos pichog'i: <b>{knife}</b>",
+            f"• {tg_emoji('item_doc', '📄', 'SHOP')} Soxta hujjat: <b>{fake_doc}</b>",
+            f"• {tg_emoji('item_crown', '👑', 'SHOP')} Hukmdan himoya: <b>{ruler_prot}</b>",
+            f"• {tg_emoji('item_shield', '🛡️', 'SHOP')} Tungi himoya: <b>{prot}</b>",
+            f"• {tg_emoji('item_vote', '🗳️', 'SHOP')} Qo'shimcha ovoz: <b>{extra_vote}</b>",
+            f"• {tg_emoji('item_rose', '🌹', 'SHOP')} Gul: <b>{rose}</b>"
         ]
 
         rows = []
@@ -141,7 +142,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await q.edit_message_text(
             "\n".join(lines),
             reply_markup=InlineKeyboardMarkup(rows),
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         return
 

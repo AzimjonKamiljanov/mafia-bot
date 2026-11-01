@@ -23,6 +23,8 @@ from core.navigation import (
     bot_action_button, return_to_group_keyboard, get_bot_deep_link, resolve_and_cache_group_link, escape_md
 )
 
+from core.emojis import tg_emoji
+
 log = logging.getLogger("detektiv.phases.lobby")
 
 def lobby_text(lobby: Dict[str, Any]) -> str:
@@ -30,9 +32,9 @@ def lobby_text(lobby: Dict[str, Any]) -> str:
     count = len(players)
 
     lines = [
-        "🎮 <b>O'yinga ro'yxatdan o'tish</b>",
+        f"{tg_emoji('game_start', '🎮')} <b>O'yinga ro'yxatdan o'tish</b>",
         "",
-        f"👥 <b>Ishtirokchilar ({count}/{MAX_PLAYERS}):</b>",
+        f"{tg_emoji('civilian', '👥')} <b>Ishtirokchilar ({count}/{MAX_PLAYERS}):</b>",
     ]
 
     if players:
@@ -45,7 +47,7 @@ def lobby_text(lobby: Dict[str, Any]) -> str:
 
     lines.extend([
         "",
-        f"⏳ Kamida <b>{MIN_PLAYERS}</b> kishi yig'ilgach start bering.",
+        f"{tg_emoji('timer', '⏳')} Kamida <b>{MIN_PLAYERS}</b> kishi yig'ilgach start bering.",
         "Qo'shilish uchun pastdagi <b>Qo'shilish</b> tugmasini bosing 👇",
         "",
         "ℹ️ <b>Buyruqlar:</b>",
@@ -265,7 +267,8 @@ async def _lobby_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, seconds
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text="⏳ Lobby vaqti tugadi va o'yin bekor qilindi."
+                text=f"{tg_emoji('timer', '⏳')} Lobby vaqti tugadi va o'yin bekor qilindi.",
+                parse_mode="HTML"
             )
         except Exception:
             pass
@@ -380,15 +383,15 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     await context.bot.send_message(
         chat_id=chat_id,
         text=(
-            "✨ *O'yin boshlandi!*\n\n"
-            f"👥 Ishtirokchilar: {n} nafar\n"
+            f"{tg_emoji('game_start', '✨')} <b>O'yin boshlandi!</b>\n\n"
+            f"{tg_emoji('civilian', '👥')} Ishtirokchilar: <b>{n} nafar</b>\n"
             "📩 Barcha o'yinchilarga shaxsiy xabarda (PM) rollar yuborildi.\n\n"
-            "🌙 Shahar uyquga ketmoqda... Tungi harakatlar boshlandi!"
+            f"{tg_emoji('night', '🌙')} Shahar uyquga ketmoqda... Tungi harakatlar boshlandi!"
         ),
         reply_markup=InlineKeyboardMarkup([
             [bot_action_button(chat_id, "🔵 💬 Botga o'tish (Amallar/Ovoz)")]
         ]),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
     # Shaxsiy xabarda har bir o'yinchiga to'liq taktik rol yo'riqnomasini yuborish

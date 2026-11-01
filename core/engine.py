@@ -8,6 +8,7 @@ from database.models import (
     now_iso, get_badge, change_balance, record_game_finish, resolve_afterlife_bets
 )
 from database.db import get_db
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.engine")
 
@@ -258,25 +259,33 @@ async def finish_game(
     else:
         duration_min = max(1, round(game.get("night", 1) * 2))
 
-    # Assemble announcement according to screenshot 4
+    # Assemble announcement
+    victory_header = ""
+    if winning_team == "red":
+        victory_header = f"{tg_emoji('mafia_win', '🩸')} <b>MAFIYA G'ALABA QOZONDI!</b>\n\n"
+    elif winning_team == "blue":
+        victory_header = f"{tg_emoji('civilian_win', '🏆')} <b>SHAHAR FUQAROLARI G'ALABA QOZONDI!</b>\n\n"
+    elif joker:
+        victory_header = "🃏 <b>JOKER G'ALABA QOZONDI!</b>\n\n"
+
     lines = [
-        "Tunda o'ldirilganlar:",
+        f"{tg_emoji('dead', '💀')} <b>Tunda o'ldirilganlar:</b>",
         *killed_lines,
         "",
-        "O'yin tugadi!",
+        f"{victory_header}{tg_emoji('game_start', '🎬')} <b>O'yin tugadi!</b>",
         "",
-        "G'oliblar:",
+        f"{tg_emoji('civilian_win', '🏆')} <b>G'oliblar:</b>",
         *winner_lines,
     ]
     if other_lines:
         lines.extend([
             "",
-            "Qolgan o'yinchilar:",
+            "<b>Qolgan o'yinchilar:</b>",
             *other_lines
         ])
     lines.extend([
         "",
-        f"O'yin davomiyligi: {duration_min} minut",
+        f"{tg_emoji('timer', '⏳')} O'yin davomiyligi: {duration_min} minut",
         "",
         "🎉 🪩"
     ])
@@ -288,7 +297,7 @@ async def finish_game(
     ])
 
     try:
-        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_kb)
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_kb, parse_mode="HTML")
     except Exception as e:
         log.warning("Could not send finish game text: %s", e)
 

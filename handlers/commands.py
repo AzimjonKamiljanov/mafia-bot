@@ -16,6 +16,7 @@ from core.engine import (
 from phases.lobby import create_lobby, lobby_text, lobby_keyboard
 from core.will import save_player_will, format_will_announcement
 from core.visuals import anim_emoji, format_badge_with_anim_emoji, strip_anim_emoji_tags
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.handlers.commands")
 
@@ -484,17 +485,17 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     badge_raw = await get_badge(user.id) or "Yo'q"
-    badge_display = strip_anim_emoji_tags(format_badge_with_anim_emoji(badge_raw)) if badge_raw and badge_raw != "Yo'q" else "Yo'q"
+    badge_display = format_badge_with_anim_emoji(badge_raw) if badge_raw and badge_raw != "Yo'q" else "Yo'q"
     admin_tag = " (Admin)" if is_admin(user.id, getattr(user, "username", "")) else ""
 
     text = (
-        f"👤 <b>Profil:</b> <b>{html.escape(u['name'])}</b>{admin_tag}\n\n"
-        f"🪙 Tangalar: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['coin']}</b>\n"
-        f"🥇 Oltin: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['gold']}</b>\n"
-        f"🎮 Jami o'yinlar: <b>{u['games']}</b>\n"
-        f"🏆 G'alabalar: <b>{u['wins']}</b>\n"
-        f"❌ Mag'lubiyatlar: <b>{u['losses']}</b>\n"
-        f"🎖️ Faol belgi: <b>{badge_display}</b>"
+        f"{tg_emoji('profile', '👤', 'USER_SETTINGS')} <b>Profil:</b> <b>{html.escape(u['name'])}</b>{admin_tag}\n\n"
+        f"{tg_emoji('balance_coins', '🪙', 'USER_SETTINGS')} Tangalar: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['coin']}</b>\n"
+        f"{tg_emoji('balance_gold', '🥇', 'USER_SETTINGS')} Oltin: <b>{'∞' if is_admin(user.id, getattr(user, 'username', '')) else u['gold']}</b>\n"
+        f"{tg_emoji('stats_games', '🎮', 'USER_SETTINGS')} Jami o'yinlar: <b>{u['games']}</b>\n"
+        f"{tg_emoji('stats_wins', '🏆', 'USER_SETTINGS')} G'alabalar: <b>{u['wins']}</b>\n"
+        f"{tg_emoji('stats_losses', '❌', 'USER_SETTINGS')} Mag'lubiyatlar: <b>{u['losses']}</b>\n"
+        f"{tg_emoji('badge_target', '🎖️', 'USER_SETTINGS')} Faol belgi: <b>{badge_display}</b>"
     )
     profile_kb = InlineKeyboardMarkup([
         [
@@ -549,9 +550,9 @@ async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ])
     b_text = (
-        f"💰 <b>Sizning balansingiz:</b>\n\n"
-        f"🪙 Tangalar: <b>{coins} Coin</b>\n"
-        f"🥇 Oltinlar: <b>{gold} Gold</b>"
+        f"{tg_emoji('cart', '💰', 'SHOP')} <b>Sizning balansingiz:</b>\n\n"
+        f"{tg_emoji('balance_coins', '🪙', 'USER_SETTINGS')} Tangalar: <b>{coins} Coin</b>\n"
+        f"{tg_emoji('balance_gold', '🥇', 'USER_SETTINGS')} Oltinlar: <b>{gold} Gold</b>"
     )
     if update.callback_query:
         try:
@@ -1007,10 +1008,10 @@ async def goal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         text = (
-            f"🎯 <b>DETEKTIV MAFIA — JAMOAVIY MAQSADLAR</b>\n\n"
-            "🔵 <b>Shahar (Town) Maqsadi:</b>\n"
+            f"{tg_emoji('badge_target', '🎯', 'USER_SETTINGS')} <b>DETEKTIV MAFIA — JAMOAVIY MAQSADLAR</b>\n\n"
+            f"{tg_emoji('civilian_team', '🔵', 'GAMEPLAY')} <b>Shahar (Town) Maqsadi:</b>\n"
             "Barcha Mafiya a'zolari va shafqatsiz qotillarni fosh qilish, tergov va sud orqali shaharni tozalash!\n\n"
-            "🔴 <b>Mafiya (Mafia) Maqsadi:</b>\n"
+            f"{tg_emoji('mafia_team', '🔴', 'GAMEPLAY')} <b>Mafiya (Mafia) Maqsadi:</b>\n"
             "Shahar aholisini tunda va sudda yo'q qilib, ko'pchilikni egallash va shahar ustidan nazorat o'rnatish!\n\n"
             "🟡 <b>Yakkaxonlar (Solo) Maqsadi:</b>\n"
             "• <b>Joker:</b> Shaharni aldab o'zini dorda ostirish!\n"
@@ -1036,12 +1037,12 @@ async def teamwork_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         f"🤝 <b>DETEKTIV MAFIA — JAMOAVIY HAMKORLIK VA ITTIFOQLAR PREVIEW</b>\n\n"
-        "✨ <b>1. Detektiv va Sherif Hamkorligi:</b>\n"
+        f"✨ <b>1. {tg_emoji('detective', '🕵️‍♂️')}{tg_emoji('sheriff', '👮‍♂️')} Detektiv va Sherif Hamkorligi:</b>\n"
         "• Detektiv tirik ekan, shahar xavfsizligini ta'minlab, faol tergov olib boradi.\n"
         "• Sherif esa Detektiv tirik paytda passiv turadi va uning o'rnini kutadi.\n"
         "• <b>Detektiv halok bo'lgach:</b> Sherif darhol barcha detektivlik vakolatlariga ega bo'lib Detektivga aylanadi!\n\n"
-        "✨ <b>2. Mafiya Sindikati:</b>\n"
-        "• <b>Boshliq (Don)</b> tungi qotillik nishonini belgilaydi.\n"
+        f"✨ <b>2. {tg_emoji('mafia_team', '🔪')} Mafiya Sindikati:</b>\n"
+        f"• {tg_emoji('don', '👑')} <b>Boshliq (Don)</b> tungi qotillik nishonini belgilaydi.\n"
         "• <b>Qotil</b> va <b>Bo'ri</b> Boshliq bilan birga harakatlanadi. Agar Boshliq halok bo'lsa, mustaqil ovga chiqadi!\n"
         "• <b>Soya</b> va <b>Soxtachi</b> tergovchilarni chalg'itib, soxta dalillar orqali mafiyani himoyalaydi.\n\n"
         "✨ <b>3. Ijtimoiy Ittifoqlar (Social Bonds):</b>\n"

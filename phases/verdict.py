@@ -16,6 +16,7 @@ from core.graveyard import graveyard_menu_keyboard, graveyard_status_text
 from core.audio_effects import send_atmospheric_message
 from core.navigation import bot_action_button
 from core.visuals import send_animated_dice_effect
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.phases.verdict")
 
@@ -43,10 +44,10 @@ async def verdict_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
 
     verdict_seconds = int(game.get("settings", {}).get("verdict_seconds", DEFAULT_VERDICT_SECONDS))
     text = (
-        "⚖️ *Sud minbari*\n\n"
-        f"Ayblanuvchi: *{accused_name}*\n\n"
+        f"{tg_emoji('voting', '⚖️')} <b>Sud minbari</b>\n\n"
+        f"Ayblanuvchi: <b>{accused_name}</b>\n\n"
         "Shahar fuqarolari, uning taqdirini hal qiling: qatl etilsinmi yoki afv etilsin?\n\n"
-        f"⏳ Vaqt: {verdict_seconds} soniya"
+        f"{tg_emoji('timer', '⏳')} Vaqt: <b>{verdict_seconds} soniya</b>"
     )
 
     kb = verdict_keyboard(chat_id, accused_uid)
@@ -55,7 +56,8 @@ async def verdict_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
         chat_id=chat_id,
         text=text,
         sound_type="verdict",
-        reply_markup=kb
+        reply_markup=kb,
+        parse_mode="HTML"
     )
 
     night_num = game.get("night", 1)
@@ -233,7 +235,7 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         # Execute accused
         game["alive"][accused_uid] = False
         verdict_story = generate_verdict_story(accused_name, accused_role)
-        lines.append(f"\n☠️ *QATL IJRO ETILDI:*\n{verdict_story}")
+        lines.append(f"\n{tg_emoji('eliminated', '☠️')} <b>QATL IJRO ETILDI:</b>\n{verdict_story}")
 
         # Broadcast Last Will
         will = await fetch_player_will(accused_uid)
@@ -255,13 +257,13 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         if knife_victim and game["alive"].get(knife_victim, False):
             game["alive"][knife_victim] = False
             rkv_name = display_name(game, knife_victim)
-            lines.append(f"\n🔪 *QASOS PICHOG'I ISHLADI!*\n*{accused_name}* o'limi oldidan yashirin qasos pichog'ini ishlatib, qatl tarafdori *{rkv_name}*ni o'ldirdi (Har bir o'yinda faqat 1 marta ishlatish mumkin)!")
+            lines.append(f"\n{tg_emoji('mafia', '🔪')} <b>QASOS PICHOG'I ISHLADI!</b>\n*{accused_name}* o'limi oldidan yashirin qasos pichog'ini ishlatib, qatl tarafdori *{rkv_name}*ni o'ldirdi (Har bir o'yinda faqat 1 marta ishlatish mumkin)!")
             try:
                 await context.bot.send_message(
                     chat_id=accused_uid,
-                    text="🔪 *QASOS PICHOG'I ISHLADI!* Siz o'limingiz oldidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    text=f"{tg_emoji('mafia', '🔪')} <b>QASOS PICHOG'I ISHLADI!</b> Siz o'limingiz oldidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ <b>Eslatma:</b> Har bir o'yinda faqat 1 marta foydalanish mumkin.",
                     reply_markup=verdict_res_kb,
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -277,8 +279,9 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
                         try:
                             await context.bot.send_message(
                                 chat_id=p_uid,
-                                text="🕵️‍♂️ *DETEKTIV VAFOT ETDI!*\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz va Detektivga aylandingiz.",
-                                reply_markup=return_to_group_keyboard(game)
+                                text=f"{tg_emoji('detective', '🕵️‍♂️')} <b>DETEKTIV VAFOT ETDI!</b>\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz va Detektivga aylandingiz.",
+                                reply_markup=return_to_group_keyboard(game),
+                                parse_mode="HTML"
                             )
                         except Exception:
                             pass
@@ -289,8 +292,9 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
                         try:
                             await context.bot.send_message(
                                 chat_id=p_uid,
-                                text="👑 *BOSHLIQ HALOK BO'LDI!*\nEndi mafiya boshqaruvi sizning qo'lingizda. Nishonni o'zingiz tanlaysiz.",
-                                reply_markup=return_to_group_keyboard(game)
+                                text=f"{tg_emoji('don', '👑')} <b>BOSHLIQ HALOK BO'LDI!</b>\nEndi mafiya boshqaruvi sizning qo'lingizda. Nishonni o'zingiz tanlaysiz.",
+                                reply_markup=return_to_group_keyboard(game),
+                                parse_mode="HTML"
                             )
                         except Exception:
                             pass
@@ -300,7 +304,8 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
             await context.bot.send_message(
                 chat_id=accused_uid,
                 text=graveyard_status_text(game, accused_uid),
-                reply_markup=graveyard_menu_keyboard(game.get("_db_id", 0), group_link=game.get("group_link"))
+                reply_markup=graveyard_menu_keyboard(game.get("_db_id", 0), group_link=game.get("group_link")),
+                parse_mode="HTML"
             )
         except Exception:
             pass

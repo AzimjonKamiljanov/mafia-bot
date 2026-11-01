@@ -19,6 +19,7 @@ from core.weather import roll_weather
 from core.will import fetch_player_will
 from core.audio_effects import send_atmospheric_message
 from core.navigation import bot_action_keyboard, return_to_group_keyboard, get_bot_deep_link
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.phases.night")
 
@@ -246,29 +247,29 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
             solo_roles.append(r_display)
 
     announcement_lines = [
-        f"🌙 *Tun #{night_num}*",
+        f"{tg_emoji('night', '🌙')} <b>Tun #{night_num}</b>",
         "",
-        "Tirik o'yinchilar:",
+        "<b>Tirik o'yinchilar:</b>",
         *player_lines,
         "",
-        f"Tinchlar - {len(blue_roles)}:",
+        f"{tg_emoji('civilian_team', '👥')} <b>Tinchlar - {len(blue_roles)}:</b>",
         ", ".join(blue_roles),
         "",
-        f"Mafiyalar - {len(red_roles)}:",
+        f"{tg_emoji('mafia_team', '🔪')} <b>Mafiyalar - {len(red_roles)}:</b>",
         ", ".join(red_roles),
     ]
     if solo_roles:
         announcement_lines.extend([
             "",
-            f"Yakkalar - {len(solo_roles)}:",
+            f"<b>Yakkalar - {len(solo_roles)}:</b>",
             ", ".join(solo_roles),
         ])
     night_seconds = int(game.get("settings", {}).get("night_seconds", DEFAULT_NIGHT_SECONDS))
     announcement_lines.extend([
         "",
-        f"Jami: {len(alive_uids)} ta",
+        f"<b>Jami: {len(alive_uids)} ta</b>",
         "",
-        f"Tonggacha ⏳ {night_seconds} sekund qoldi"
+        f"Tonggacha {tg_emoji('timer', '⏳')} <b>{night_seconds} sekund</b> qoldi"
     ])
 
     night_announcement = "\n".join(announcement_lines)
@@ -282,7 +283,8 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         text=night_announcement,
         sound_type="night",
         photo_path=NIGHT_PHOTO_PATH,
-        reply_markup=night_kb
+        reply_markup=night_kb,
+        parse_mode="HTML"
     )
 
     # Deliver action menus to players in PM
@@ -296,16 +298,16 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         )
         if role == "Sherif" and det_alive and uid not in game.get("sheriff_promoted", set()):
             pm_prompt = (
-                f"🌙 *Tun #{night_num} amallari*\n"
-                f"🎭 Sizning rolingiz: *Sherif*\n\n"
-                "👮‍♂️ *Detektiv hozirda tirik!* Shahar xavfsizligini Detektiv ta'minlamoqda.\n"
+                f"{tg_emoji('night', '🌙')} <b>Tun #{night_num} amallari</b>\n"
+                f"🎭 Sizning rolingiz: <b>Sherif</b>\n\n"
+                f"{tg_emoji('sheriff', '👮‍♂️')} <b>Detektiv hozirda tirik!</b> Shahar xavfsizligini Detektiv ta'minlamoqda.\n"
                 "Siz uning o'rnini faqat Detektiv halok bo'lgandagina egallaysiz.\n"
                 "Quyidagi tugmalardan birini tanlang:"
             )
         else:
             pm_prompt = (
-                f"🌙 *Tun #{night_num} amallari*\n"
-                f"🎭 Sizning rolingiz: *{role}*\n"
+                f"{tg_emoji('night', '🌙')} <b>Tun #{night_num} amallari</b>\n"
+                f"🎭 Sizning rolingiz: <b>{role}</b>\n"
                 "Quyidagi tugmalardan birini tanlang:"
             )
         kb = get_role_action_buttons(game, uid)
@@ -314,7 +316,8 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
                 await context.bot.send_message(
                     chat_id=uid,
                     text=pm_prompt,
-                    reply_markup=kb
+                    reply_markup=kb,
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -544,11 +547,13 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                 try:
                     await context.bot.send_message(
                         chat_id=doc_uid,
-                        text=f"🩺 *HIMOYA ISHLADI!* Siz *{display_name(game, target)}*ni o'limdan asrab qoldingiz."
+                        text=f"{tg_emoji('doctor_save', '🩺')} <b>HIMOYA ISHLADI!</b> Siz <b>{display_name(game, target)}</b>ni o'limdan asrab qoldingiz.",
+                        parse_mode="HTML"
                     )
                     await context.bot.send_message(
                         chat_id=target,
-                        text="🩺 *DOKTOR SIZNI DAVOLADI!* Tunda sizga suiqasd qilingan edi, ammo shifokor sizni qutqarib qoldi."
+                        text=f"{tg_emoji('doctor_save', '🩺')} <b>DOKTOR SIZNI DAVOLADI!</b> Tunda sizga suiqasd qilingan edi, ammo shifokor sizni qutqarib qoldi.",
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
@@ -846,8 +851,9 @@ async def complete_night_resolution(
         try:
             await context.bot.send_message(
                 chat_id=det_id,
-                text=f"🔎 *DETEKTIV TEKSHIRUV NATIJASI:*\n\n👤 {tgt_name} — 🎭 *{real_role}*",
-                reply_markup=return_to_group_keyboard(game)
+                text=f"{tg_emoji('investigation', '🔎')} <b>DETEKTIV TEKSHIRUV NATIJASI:</b>\n\n👤 {tgt_name} — 🎭 <b>{real_role}</b>",
+                reply_markup=return_to_group_keyboard(game),
+                parse_mode="HTML"
             )
         except Exception:
             pass
@@ -873,8 +879,9 @@ async def complete_night_resolution(
             try:
                 await context.bot.send_message(
                     chat_id=sh_id,
-                    text="🕵️‍♂️ *DETEKTIV VAFOT ETDI!*\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz va Detektivga aylandingiz.",
-                    reply_markup=return_to_group_keyboard(game)
+                    text=f"{tg_emoji('detective', '🕵️‍♂️')} <b>DETEKTIV VAFOT ETDI!</b>\nSiz Sherif sifatida barcha detektivlik vakolatlarini qabul qildingiz va Detektivga aylandingiz.",
+                    reply_markup=return_to_group_keyboard(game),
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -888,8 +895,9 @@ async def complete_night_resolution(
             try:
                 await context.bot.send_message(
                     chat_id=partner,
-                    text="👑 *BOSHLIQ HALOK BO'LDI!*\nEndi mafiya boshqaruvi sizning qo'lingizda. Nishonni o'zingiz tanlaysiz.",
-                    reply_markup=return_to_group_keyboard(game)
+                    text=f"{tg_emoji('don', '👑')} <b>BOSHLIQ HALOK BO'LDI!</b>\nEndi mafiya boshqaruvi sizning qo'lingizda. Nishonni o'zingiz tanlaysiz.",
+                    reply_markup=return_to_group_keyboard(game),
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass

@@ -58,7 +58,7 @@ async def test_pm_core_commands():
     assert up.message.reply_text.called
     text = up.message.reply_text.call_args[0][0]
     assert "Profil:" in text
-    assert "<tg-emoji" not in text
+    assert "<tg-emoji" in text
 
     # 3. /balance
     up.message.reply_text.reset_mock()
@@ -66,7 +66,7 @@ async def test_pm_core_commands():
     assert up.message.reply_text.called
     text = up.message.reply_text.call_args[0][0]
     assert "Sizning balansingiz:" in text
-    assert "<tg-emoji" not in text
+    assert "<tg-emoji" in text
 
     # 4. /will (get and set)
     up.message.reply_text.reset_mock()

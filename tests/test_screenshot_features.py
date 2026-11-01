@@ -60,8 +60,9 @@ async def test_night_announcement_screenshot_format(mock_context):
     assert "Tirik o'yinchilar:" in text
     assert "Tinchlar - 4:" in text
     assert "Mafiyalar - 1:" in text
-    assert "Jami: 5 ta" in text
-    assert f"Tonggacha ⏳ {DEFAULT_NIGHT_SECONDS} sekund qoldi" in text
+    from core.visuals import strip_anim_emoji_tags
+    assert f"Tonggacha ⏳ <b>{DEFAULT_NIGHT_SECONDS} sekund</b> qoldi" in strip_anim_emoji_tags(text)
+    assert "<tg-emoji" in text
 
 @pytest.mark.asyncio
 async def test_finish_game_screenshot_format(mock_context):

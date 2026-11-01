@@ -32,16 +32,18 @@ def graveyard_menu_keyboard(game_id: Any = 0, group_link: Optional[str] = None) 
     ]
     return InlineKeyboardMarkup(rows)
 
+from core.emojis import tg_emoji
+
 def graveyard_status_text(game: Dict[str, Any], viewer_id: int) -> str:
     alive_count = sum(1 for v in game.get("alive", {}).values() if v)
     dead_count = len(game.get("players", [])) - alive_count
     night_num = game.get("night", 1)
 
     lines = [
-        "👻 *Ruhlar Olami (Graveyard)*",
+        f"{tg_emoji('graveyard', '👻')} <b>Ruhlar Olami (Graveyard)</b>",
         "",
-        f"🌌 Faza: *{game.get('phase', 'Nomaʼlum').capitalize()}* | #{night_num}",
-        f"👥 Tiriklar: *{alive_count}* | 💀 Ruhlar: *{dead_count}*",
+        f"🌌 Faza: <b>{game.get('phase', 'Nomaʼlum').capitalize()}</b> | #{night_num}",
+        f"{tg_emoji('civilian', '👥')} Tiriklar: <b>{alive_count}</b> | {tg_emoji('dead', '💀')} Ruhlar: <b>{dead_count}</b>",
         "",
         "O'yinni tomosha qiling va qaysi jamoa g'alaba qozonishiga tanga tiking (50 coin, x2 yutuq):"
     ]

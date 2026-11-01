@@ -14,6 +14,8 @@ from core.graveyard import graveyard_menu_keyboard, graveyard_status_text
 from core.audio_effects import send_atmospheric_message
 from core.navigation import bot_action_button, return_to_group_keyboard
 
+from core.emojis import tg_emoji
+
 log = logging.getLogger("detektiv.phases.day")
 
 async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
@@ -46,15 +48,15 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         story = generate_morning_story(None, None, weather_info=weather)
 
     lines = [
-        f"☀️ *Tong #{night_num}*",
+        f"{tg_emoji('day', '☀️')} <b>Tong #{night_num}</b>",
         "",
-        f"_{story}_",
+        f"<i>{story}</i>",
     ]
 
     # Death reports, Clues, and Last Wills
     if deaths:
         lines.append("")
-        lines.append("💀 *Qurbonlar:*")
+        lines.append(f"{tg_emoji('dead', '💀')} <b>Qurbonlar:</b>")
         for uid in deaths:
             name = display_name(game, uid)
             role = game.get("roles", {}).get(uid, "Fuqaro")
@@ -62,9 +64,9 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
             cause_str = ", ".join(cause_list)
             clue = clues.get(uid)
 
-            lines.append(f"• *{name}* — {role} ({cause_str})")
+            lines.append(f"• <b>{name}</b> — {role} ({cause_str})")
             if clue:
-                lines.append(f"  🔎 *Ashyoviy dalil:* {clue['summary']}")
+                lines.append(f"  {tg_emoji('investigation', '🔎')} <b>Ashyoviy dalil:</b> {clue['summary']}")
 
             # Fetch and broadcast Last Will
             will = await fetch_player_will(uid)
@@ -78,7 +80,7 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
                     chat_id=uid,
                     text=graveyard_status_text(game, uid),
                     reply_markup=graveyard_menu_keyboard(game.get("_db_id", 0), group_link=game.get("group_link")),
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -113,7 +115,8 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         text="\n".join(lines),
         sound_type="morning",
         photo_path=DAY_PHOTO_PATH,
-        reply_markup=day_keyboard
+        reply_markup=day_keyboard,
+        parse_mode="HTML"
     )
 
     await save_runtime(game)

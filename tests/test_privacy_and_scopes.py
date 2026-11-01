@@ -536,3 +536,55 @@ async def test_create_bot_app_registers_all_handlers():
     expected = {"start", "game", "admin", "stats", "profile", "balance", "will", "shop", "guide", "rating", "clan", "boost"}
     for cmd in expected:
         assert cmd in registered_cmds, f"Handler for /{cmd} must be registered in bot app"
+
+def test_custom_emojis_full_suite():
+    """Exhaustive test for Telegram Premium Custom Emojis integration."""
+    from core.emojis import tg_emoji, render_custom_emoji, strip_anim_emoji_tags, EMOJI_CONFIG
+    from bot import SafeExtBot
+    import pytest
+
+    # 1. Verify all 11 required active emoji IDs
+    active_ids = {
+        "game_start": "3191530815439765550",
+        "mafia": "1269403972611866648",
+        "don": "919985748604617114",
+        "detective": "1740555807604342805",
+        "doctor": "3191530815439765548",
+        "night": "4158409751421517834",
+        "day": "336920350212227127",
+        "dead": "3974262500324540463",
+        "civilian": "1471004892762996745",
+        "mafia_win": "1145788388561911824",
+        "timer": "3024877442880766280",
+    }
+    for key, doc_id in active_ids.items():
+        tag = tg_emoji(key)
+        assert f'<tg-emoji document-id="{doc_id}">' in tag
+        assert tag.endswith("</tg-emoji>")
+
+    # 2. render_custom_emoji category checks
+    res_game = render_custom_emoji("GAMEPLAY", "doctor")
+    assert '<tg-emoji document-id="3191530815439765548">🩺</tg-emoji>' == res_game
+
+    res_shop = render_custom_emoji("SHOP", "coin")
+    assert '<tg-emoji document-id="5429462837318049280">🪙</tg-emoji>' == res_shop
+
+    res_unknown = render_custom_emoji("UNKNOWN", "nonexistent", fallback="❓")
+    assert res_unknown == "❓"
+
+    # 3. Direct numeric ID rendering
+    res_direct_id = tg_emoji("3191530815439765550", fallback="🎮")
+    assert res_direct_id == '<tg-emoji document-id="3191530815439765550">🎮</tg-emoji>'
+
+    # 4. Unknown key fallback
+    assert tg_emoji("random_unknown_key_xyz", fallback="⭐") == "⭐"
+
+    # 5. strip_anim_emoji_tags edge cases
+    assert strip_anim_emoji_tags("") == ""
+    assert strip_anim_emoji_tags(None) is None
+    assert strip_anim_emoji_tags("Plain text with no tags") == "Plain text with no tags"
+    multi_tag = '<tg-emoji document-id="123">🔪</tg-emoji> Killer vs <tg-emoji document-id="456">🩺</tg-emoji> Doctor'
+    assert strip_anim_emoji_tags(multi_tag) == "🔪 Killer vs 🩺 Doctor"
+    legacy_tag = '<tg-emoji emoji-id="789">🌙</tg-emoji> Tun'
+    assert strip_anim_emoji_tags(legacy_tag) == "🌙 Tun"
+

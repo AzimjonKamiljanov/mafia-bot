@@ -10,6 +10,7 @@ from config import (
     DEFAULT_VOTE_SECONDS, DEFAULT_VERDICT_SECONDS, ROLES, ROLE_ORDER
 )
 from database.models import get_chat_settings, update_chat_settings, is_admin
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.handlers.settings")
 
@@ -162,14 +163,14 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dis_text = ", ".join(disabled) if disabled else "<i>Barcha rollar faol</i>"
 
     text = (
-        "⚙️ <b>O'YIN VA GURUH SOZLAMALARI</b>\n\n"
+        f"{tg_emoji('settings_gear', '⚙️', 'USER_SETTINGS')} <b>O'YIN VA GURUH SOZLAMALARI</b>\n\n"
         f"👥 Guruh: <b>{title}</b>\n\n"
-        "⏱ <b>Hozirgi vaqtlar:</b>\n"
-        f"• 🌙 Tun fazasi: <b>{night}s</b>\n"
-        f"• ☀️ Kun fazasi: <b>{day}s</b>\n"
-        f"• 🗳 Ovoz berish: <b>{vote}s</b>\n"
-        f"• ⚖️ Sud (Hukm): <b>{verdict}s</b>\n\n"
-        f"🎭 <b>O'chirilgan rollar:</b> {dis_text}\n\n"
+        f"{tg_emoji('timer', '⏱', 'USER_SETTINGS')} <b>Hozirgi vaqtlar:</b>\n"
+        f"• {tg_emoji('night', '🌙')} Tun fazasi: <b>{night}s</b>\n"
+        f"• {tg_emoji('day', '☀️')} Kun fazasi: <b>{day}s</b>\n"
+        f"• {tg_emoji('voting', '🗳')} Ovoz berish: <b>{vote}s</b>\n"
+        f"• {tg_emoji('voting', '⚖️')} Sud (Hukm): <b>{verdict}s</b>\n\n"
+        f"• {tg_emoji('settings_roles', '🎭', 'USER_SETTINGS')} <b>O'chirilgan rollar:</b> {dis_text}\n\n"
         "O'zgartirish uchun quyidagi tugmalardan birini tanlang 👇"
     )
 
@@ -229,13 +230,13 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
 
         dis_text = ", ".join(disabled) if disabled else "<i>Barcha rollar faol</i>"
         text = (
-            "⚙️ <b>O'YIN VA GURUH SOZLAMALARI</b>\n\n"
-            "⏱ <b>Hozirgi vaqtlar:</b>\n"
-            f"• 🌙 Tun fazasi: <b>{night}s</b>\n"
-            f"• ☀️ Kun fazasi: <b>{day}s</b>\n"
-            f"• 🗳 Ovoz berish: <b>{vote}s</b>\n"
-            f"• ⚖️ Sud (Hukm): <b>{verdict}s</b>\n\n"
-            f"🎭 <b>O'chirilgan rollar:</b> {dis_text}\n\n"
+            f"{tg_emoji('settings_gear', '⚙️', 'USER_SETTINGS')} <b>O'YIN VA GURUH SOZLAMALARI</b>\n\n"
+            f"{tg_emoji('timer', '⏱', 'USER_SETTINGS')} <b>Hozirgi vaqtlar:</b>\n"
+            f"• {tg_emoji('night', '🌙')} Tun fazasi: <b>{night}s</b>\n"
+            f"• {tg_emoji('day', '☀️')} Kun fazasi: <b>{day}s</b>\n"
+            f"• {tg_emoji('voting', '🗳')} Ovoz berish: <b>{vote}s</b>\n"
+            f"• {tg_emoji('voting', '⚖️')} Sud (Hukm): <b>{verdict}s</b>\n\n"
+            f"• {tg_emoji('settings_roles', '🎭', 'USER_SETTINGS')} <b>O'chirilgan rollar:</b> {dis_text}\n\n"
             "O'zgartirish uchun quyidagi tugmalardan birini tanlang 👇"
         )
         await q.edit_message_text(text, reply_markup=build_settings_menu_keyboard(chat_id), parse_mode="HTML")

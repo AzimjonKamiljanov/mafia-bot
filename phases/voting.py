@@ -11,6 +11,7 @@ from core.engine import (
 )
 from core.audio_effects import send_atmospheric_message
 from core.navigation import bot_action_button
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.phases.voting")
 
@@ -60,8 +61,8 @@ async def start_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any])
 
     vote_seconds = int(game.get("settings", {}).get("vote_seconds", DEFAULT_VOTE_SECONDS))
     text = (
-        "Aybdorlarni aniqlash va jazolash vaqti keldi.\n"
-        f"Ovoz berish uchun {vote_seconds} sekund"
+        f"{tg_emoji('voting', '🗳️')} <b>Aybdorlarni aniqlash va jazolash vaqti keldi.</b>\n"
+        f"Ovoz berish uchun {tg_emoji('timer', '⏳')} <b>{vote_seconds} sekund</b>"
     )
 
     kb = get_voting_keyboard(game)
@@ -70,7 +71,8 @@ async def start_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any])
         chat_id=chat_id,
         text=text,
         sound_type="voting",
-        reply_markup=kb
+        reply_markup=kb,
+        parse_mode="HTML"
     )
 
     cancel_game_timer(game)
@@ -111,28 +113,28 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
 
     # Check results
     lines = [
-        "🧊 *Ovoz berish natijalari:*",
+        f"{tg_emoji('voting', '🧊')} <b>Ovoz berish natijalari:</b>",
         ""
     ]
 
     for target, count in tally.items():
         if target == "none":
-            lines.append(f"• 🕊️ Hech kimga: {count} ovoz")
+            lines.append(f"• 🕊️ Hech kimga: <b>{count} ovoz</b>")
         else:
             try:
                 t_uid = int(target)
-                lines.append(f"• 👤 *{display_name(game, t_uid)}*: {count} ovoz")
+                lines.append(f"• 👤 <b>{display_name(game, t_uid)}</b>: <b>{count} ovoz</b>")
             except Exception:
                 pass
 
     if not tally:
-        lines.append("Hech kim ovoz bermadi.")
+        lines.append("<i>Hech kim ovoz bermadi.</i>")
 
     from core.navigation import bot_action_keyboard
     action_kb = bot_action_keyboard(chat_id, "💬 Botga o'tish (Amallar/Ovoz)")
 
     try:
-        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb, parse_mode="HTML")
     except Exception:
         await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb)
 
