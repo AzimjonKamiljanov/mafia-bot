@@ -106,6 +106,9 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
             weight += 1
         tally[target] = tally.get(target, 0) + weight
 
+    # Clear active round extra votes so they do not leak into subsequent voting rounds
+    game.setdefault("extra_votes", set()).clear()
+
     # Check results
     lines = [
         "🧊 *Ovoz berish natijalari:*",

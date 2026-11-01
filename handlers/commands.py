@@ -1078,11 +1078,14 @@ async def use_item_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    item_id = args[0].lower().strip()
-    from core.items import consume_game_item
+    item_id = "_".join(args).lower().strip()
+    from core.items import normalize_item_id, consume_game_item
+    canonical = normalize_item_id(item_id)
+    if canonical == "extra_vote" and game.get("phase") != "voting":
+        await msg.reply_text("❌ Qo'shimcha ovozni faqat ovoz berish paytida ishlatish mumkin!")
+        return
+
     success, reply = await consume_game_item(game, user.id, item_id)
-    if success and item_id in ("extra_vote", "extra_votes", "qoshimcha_ovoz"):
-        game.setdefault("extra_votes", set()).add(user.id)
     await msg.reply_text(reply, parse_mode="HTML")
 
 

@@ -667,22 +667,30 @@ async def complete_night_resolution(
         attacks = []
 
     # 4. SHOP PROTECTION (Inventory item - Strictly 1 use per game per player)
-    from core.items import has_used_item, mark_item_used
+    from core.items import has_used_item, mark_item_used, is_item_armed, disarm_item
     for uid in list(deaths):
-        if has_used_item(game, uid, "protection"):
-            try:
-                await context.bot.send_message(
-                    chat_id=uid,
-                    text="⚠️ Siz ushbu o'yinda bu buyumdan (Tungi himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
-                    reply_markup=return_to_group_keyboard(game),
-                    parse_mode="Markdown"
-                )
-            except Exception:
-                pass
-            continue
+        saved = False
+        if is_item_armed(game, uid, "protection"):
+            disarm_item(game, uid, "protection")
+            saved = True
+        elif not has_used_item(game, uid, "protection"):
+            if await take_item(uid, "protection", 1):
+                mark_item_used(game, uid, "protection")
+                saved = True
+        else:
+            inv = await get_inventory(uid)
+            if inv.get("protection", 0) > 0:
+                try:
+                    await context.bot.send_message(
+                        chat_id=uid,
+                        text="⚠️ Siz ushbu o'yinda bu buyumdan (Tungi himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                        reply_markup=return_to_group_keyboard(game),
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
 
-        if await take_item(uid, "protection", 1):
-            mark_item_used(game, uid, "protection")
+        if saved:
             deaths.discard(uid)
             crime_clues.pop(uid, None)
             try:
@@ -697,26 +705,47 @@ async def complete_night_resolution(
 
     # 4.1. SHOP REVENGE KNIFE (Inventory item - Strictly 1 use per game per player)
     for victim_uid in list(deaths):
-        if not has_used_item(game, victim_uid, "revenge_knife"):
-            victim_attackers = [
-                atk["attacker"] for atk in attacks
-                if atk.get("target") == victim_uid and atk.get("attacker") != victim_uid and game["alive"].get(atk.get("attacker"), False)
-            ]
-            if victim_attackers:
-                target_attacker = victim_attackers[0]
-                if await take_item(victim_uid, "revenge_knife", 1):
-                    mark_item_used(game, victim_uid, "revenge_knife")
-                    deaths.add(target_attacker)
-                    death_causes.setdefault(target_attacker, []).append("Qurbonning qasos pichog'i zarbasi tufayli halok bo'ldi")
-                    try:
-                        await context.bot.send_message(
-                            chat_id=victim_uid,
-                            text="🔪 *QASOS PICHOG'I ISHLADI!* Siz o'limingiz oldidan hujumchi ustidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta foydalanish mumkin.",
-                            reply_markup=return_to_group_keyboard(game),
-                            parse_mode="Markdown"
-                        )
-                    except Exception:
-                        pass
+        victim_attackers = [
+            atk["attacker"] for atk in attacks
+            if atk.get("target") == victim_uid and atk.get("attacker") != victim_uid and game["alive"].get(atk.get("attacker"), False)
+        ]
+        if not victim_attackers:
+            continue
+        target_attacker = victim_attackers[0]
+
+        knife_used = False
+        if is_item_armed(game, victim_uid, "revenge_knife"):
+            disarm_item(game, victim_uid, "revenge_knife")
+            knife_used = True
+        elif not has_used_item(game, victim_uid, "revenge_knife"):
+            if await take_item(victim_uid, "revenge_knife", 1):
+                mark_item_used(game, victim_uid, "revenge_knife")
+                knife_used = True
+        else:
+            inv = await get_inventory(victim_uid)
+            if inv.get("revenge_knife", 0) > 0:
+                try:
+                    await context.bot.send_message(
+                        chat_id=victim_uid,
+                        text="⚠️ Siz ushbu o'yinda bu buyumdan (Qasos pichog'i) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                        reply_markup=return_to_group_keyboard(game),
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
+
+        if knife_used:
+            deaths.add(target_attacker)
+            death_causes.setdefault(target_attacker, []).append("Qurbonning qasos pichog'i zarbasi tufayli halok bo'ldi")
+            try:
+                await context.bot.send_message(
+                    chat_id=victim_uid,
+                    text="🔪 *QASOS PICHOG'I ISHLADI!* Siz o'limingiz oldidan hujumchi ustidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    reply_markup=return_to_group_keyboard(game),
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
 
     # 5. WITNESS (Sayyoh / Tourist)
     for tourist_uid, visited_uid in game.get("tourist_targets", {}).items():
@@ -779,10 +808,30 @@ async def complete_night_resolution(
             real_role = "Fuqaro" if ROLES.get(real_role) == "red" else "Qotil"
 
         # Shop Item: Fake Document (Soxta hujjat - Strictly 1 use per game)
-        from core.items import has_used_item, mark_item_used
-        if not has_used_item(game, tgt, "fake_document") and ROLES.get(real_role) == "red":
-            if await take_item(tgt, "fake_document", 1):
-                mark_item_used(game, tgt, "fake_document")
+        from core.items import has_used_item, mark_item_used, is_item_armed, disarm_item
+        if ROLES.get(real_role) == "red":
+            fake_doc_used = False
+            if is_item_armed(game, tgt, "fake_document"):
+                disarm_item(game, tgt, "fake_document")
+                fake_doc_used = True
+            elif not has_used_item(game, tgt, "fake_document"):
+                if await take_item(tgt, "fake_document", 1):
+                    mark_item_used(game, tgt, "fake_document")
+                    fake_doc_used = True
+            else:
+                inv = await get_inventory(tgt)
+                if inv.get("fake_document", 0) > 0:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=tgt,
+                            text="⚠️ Siz ushbu o'yinda bu buyumdan (Soxta hujjat) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                            reply_markup=return_to_group_keyboard(game),
+                            parse_mode="Markdown"
+                        )
+                    except Exception:
+                        pass
+
+            if fake_doc_used:
                 real_role = "Fuqaro"
                 try:
                     await context.bot.send_message(

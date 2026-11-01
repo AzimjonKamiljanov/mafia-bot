@@ -137,19 +137,30 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
             return
 
         # 2. SHOP ITEM RULER PROTECTION CHECK (Strictly 1 use per game per player)
-        from core.items import has_used_item, mark_item_used, ALREADY_USED_MSG
-        if has_used_item(game, accused_uid, "ruler_protection"):
-            try:
-                await context.bot.send_message(
-                    chat_id=accused_uid,
-                    text="⚠️ Siz ushbu o'yinda bu buyumdan (Qatldan himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
-                    reply_markup=verdict_res_kb,
-                    parse_mode="Markdown"
-                )
-            except Exception:
-                pass
-        elif await take_item(accused_uid, "ruler_protection", 1):
-            mark_item_used(game, accused_uid, "ruler_protection")
+        from core.items import has_used_item, mark_item_used, is_item_armed, disarm_item, ALREADY_USED_MSG
+        saved_by_shield = False
+        if is_item_armed(game, accused_uid, "ruler_protection"):
+            disarm_item(game, accused_uid, "ruler_protection")
+            saved_by_shield = True
+        elif not has_used_item(game, accused_uid, "ruler_protection"):
+            if await take_item(accused_uid, "ruler_protection", 1):
+                mark_item_used(game, accused_uid, "ruler_protection")
+                saved_by_shield = True
+        else:
+            from database.models import get_inventory
+            inv = await get_inventory(accused_uid)
+            if inv.get("ruler_protection", 0) > 0:
+                try:
+                    await context.bot.send_message(
+                        chat_id=accused_uid,
+                        text="⚠️ Siz ushbu o'yinda bu buyumdan (Qatldan himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                        reply_markup=verdict_res_kb,
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
+
+        if saved_by_shield:
             lines.append("\n👑 *HUKMDAN HIMOYA ISHLADI!*")
             lines.append(f"*{accused_name}* maxsus do'kon himoyasini ishlatdi va qatldan qutuldi (Har bir o'yinda faqat 1 marta ishlatish mumkin).")
             try:
@@ -198,10 +209,26 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         # 5.1. SHOP ITEM REVENGE KNIFE CHECK (Strictly 1 use per game)
         knife_victim = None
         if not qasoskor_victim and kill_votes:
-            if not has_used_item(game, accused_uid, "revenge_knife"):
+            if is_item_armed(game, accused_uid, "revenge_knife"):
+                disarm_item(game, accused_uid, "revenge_knife")
+                knife_victim = random.choice(kill_votes)
+            elif not has_used_item(game, accused_uid, "revenge_knife"):
                 if await take_item(accused_uid, "revenge_knife", 1):
                     mark_item_used(game, accused_uid, "revenge_knife")
                     knife_victim = random.choice(kill_votes)
+            else:
+                from database.models import get_inventory
+                inv = await get_inventory(accused_uid)
+                if inv.get("revenge_knife", 0) > 0:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=accused_uid,
+                            text="⚠️ Siz ushbu o'yinda bu buyumdan (Qasos pichog'i) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                            reply_markup=verdict_res_kb,
+                            parse_mode="Markdown"
+                        )
+                    except Exception:
+                        pass
 
         # Execute accused
         game["alive"][accused_uid] = False

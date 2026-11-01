@@ -674,12 +674,33 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await q.answer("❌ Detektiv tirik bo'lgan paytda Sherif qobiliyati faol emas!", show_alert=True)
                 return
             from config import ROLES
-            from core.items import has_used_item, mark_item_used
+            from core.items import has_used_item, mark_item_used, is_item_armed, disarm_item
             is_red = (ROLES.get(game["roles"].get(target)) == "red")
-            if is_red and not has_used_item(game, target, "fake_document"):
-                from database.models import take_item
-                if await take_item(target, "fake_document", 1):
-                    mark_item_used(game, target, "fake_document")
+            if is_red:
+                fake_doc_used = False
+                if is_item_armed(game, target, "fake_document"):
+                    disarm_item(game, target, "fake_document")
+                    fake_doc_used = True
+                elif not has_used_item(game, target, "fake_document"):
+                    from database.models import take_item
+                    if await take_item(target, "fake_document", 1):
+                        mark_item_used(game, target, "fake_document")
+                        fake_doc_used = True
+                else:
+                    from database.models import get_inventory
+                    inv = await get_inventory(target)
+                    if inv.get("fake_document", 0) > 0:
+                        try:
+                            await context.bot.send_message(
+                                chat_id=target,
+                                text="⚠️ Siz ushbu o'yinda bu buyumdan (Soxta hujjat) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                                reply_markup=return_to_group_keyboard(game),
+                                parse_mode="Markdown"
+                            )
+                        except Exception:
+                            pass
+
+                if fake_doc_used:
                     is_red = False
                     try:
                         await context.bot.send_message(

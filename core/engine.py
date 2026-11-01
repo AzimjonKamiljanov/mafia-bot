@@ -109,6 +109,9 @@ async def save_runtime(game: Dict[str, Any]):
             "phase": game.get("phase", "lobby"),
             "night": game.get("night", 1),
             "group_link": game.get("group_link"),
+            "used_items": {str(k): list(v) for k, v in game.get("used_items", {}).items()},
+            "extra_votes": list(game.get("extra_votes", set())),
+            "armed_items": {str(k): list(v) for k, v in game.get("armed_items", {}).items()},
         })
         now = now_iso()
         if db_id:
