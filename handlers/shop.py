@@ -102,48 +102,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     if data == "shop_items" or data == "item:list":
         await q.answer()
-        inv = await get_inventory(uid)
-        badges = await get_owned_badges(uid)
-        active_badge = await get_badge(uid) or "Yo'q"
-
-        knife = inv.get("revenge_knife", 0)
-        fake_doc = inv.get("fake_document", 0)
-        ruler_prot = inv.get("ruler_protection", 0)
-        prot = inv.get("protection", 0)
-        rose = inv.get("rose", 0)
-        extra_vote = inv.get("extra_vote", 0)
-
-        lines = [
-            f"{tg_emoji('bag', '📦', 'SHOP')} <b>Mening Buyumlarim va Belgilarim</b>",
-            "",
-            f"🏷️ Faol belgi: <b>{active_badge}</b>",
-            "",
-            "🎒 <b>Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):</b>",
-            f"• {tg_emoji('item_knife', '🔪', 'SHOP')} Qasos pichog'i: <b>{knife}</b>",
-            f"• {tg_emoji('item_doc', '📄', 'SHOP')} Soxta hujjat: <b>{fake_doc}</b>",
-            f"• {tg_emoji('item_crown', '👑', 'SHOP')} Hukmdan himoya: <b>{ruler_prot}</b>",
-            f"• {tg_emoji('item_shield', '🛡️', 'SHOP')} Tungi himoya: <b>{prot}</b>",
-            f"• {tg_emoji('item_vote', '🗳️', 'SHOP')} Qo'shimcha ovoz: <b>{extra_vote}</b>",
-            f"• {tg_emoji('item_rose', '🌹', 'SHOP')} Gul: <b>{rose}</b>"
-        ]
-
-        rows = []
-        if badges:
-            for b in badges:
-                k = b["badge_key"]
-                n = b["badge_name"]
-                is_act = (n == active_badge)
-                txt = f"🟢 {n} (Faol)" if is_act else f"⚪ {n} (Aktivlashtirish)"
-                rows.append([InlineKeyboardButton(txt, callback_data=f"item:badge:{k}")])
-
-        rows.append([InlineKeyboardButton("❌ Belgini o'chirish", callback_data="item:off")])
-        rows.append([InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="shop_main")])
-
-        await q.edit_message_text(
-            "\n".join(lines),
-            reply_markup=InlineKeyboardMarkup(rows),
-            parse_mode="HTML"
-        )
+        await render_shop_inventory(q, uid)
         return
 
     if data.startswith("buy_item:"):
@@ -189,7 +148,7 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await set_badge(uid, key, target_badge["badge_name"])
             await q.answer(f"🟢 {target_badge['badge_name']} faollashtirildi!", show_alert=True)
             try:
-                await shop_items(update, context)
+                await render_shop_inventory(q, uid)
             except Exception:
                 pass
         return
@@ -198,7 +157,54 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await deactivate_badge(uid)
         await q.answer("⚪ Faol belgi olib tashlandi.", show_alert=True)
         try:
-            await shop_items(update, context)
+            await render_shop_inventory(q, uid)
         except Exception:
             pass
         return
+
+async def render_shop_inventory(q, uid: int):
+    """Render player's items and badges inventory with Telegram Premium emojis."""
+    inv = await get_inventory(uid)
+    badges = await get_owned_badges(uid)
+    active_badge = await get_badge(uid) or "Yo'q"
+
+    knife = inv.get("revenge_knife", 0)
+    fake_doc = inv.get("fake_document", 0)
+    ruler_prot = inv.get("ruler_protection", 0)
+    prot = inv.get("protection", 0)
+    rose = inv.get("rose", 0)
+    extra_vote = inv.get("extra_vote", 0)
+
+    lines = [
+        f"{tg_emoji('bag', '📦', 'SHOP')} <b>Mening Buyumlarim va Belgilarim</b>",
+        "",
+        f"🏷️ Faol belgi: <b>{active_badge}</b>",
+        "",
+        "🎒 <b>Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):</b>",
+        f"• {tg_emoji('item_knife', '🔪', 'SHOP')} Qasos pichog'i: <b>{knife}</b>",
+        f"• {tg_emoji('item_doc', '📄', 'SHOP')} Soxta hujjat: <b>{fake_doc}</b>",
+        f"• {tg_emoji('item_crown', '👑', 'SHOP')} Hukmdan himoya: <b>{ruler_prot}</b>",
+        f"• {tg_emoji('item_shield', '🛡️', 'SHOP')} Tungi himoya: <b>{prot}</b>",
+        f"• {tg_emoji('item_vote', '🗳️', 'SHOP')} Qo'shimcha ovoz: <b>{extra_vote}</b>",
+        f"• {tg_emoji('item_rose', '🌹', 'SHOP')} Gul: <b>{rose}</b>"
+    ]
+
+    rows = []
+    if badges:
+        for b in badges:
+            k = b["badge_key"]
+            n = b["badge_name"]
+            is_act = (n == active_badge)
+            txt = f"🟢 {n} (Faol)" if is_act else f"⚪ {n} (Aktivlashtirish)"
+            rows.append([InlineKeyboardButton(txt, callback_data=f"item:badge:{k}")])
+
+    rows.append([InlineKeyboardButton("❌ Belgini o'chirish", callback_data="item:off")])
+    rows.append([InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="shop_main")])
+
+    await q.edit_message_text(
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(rows),
+        parse_mode="HTML"
+    )
+
+shop_items = render_shop_inventory

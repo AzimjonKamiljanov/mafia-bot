@@ -112,10 +112,10 @@ async def call_players_in_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
         first_mentions = "\n".join(f"• {make_mention(m)}" for m in chunks[0])
         batch_label = f" (1/{len(chunks)})" if len(chunks) > 1 else ""
         header_text = (
-            f"📢 <b>DIQQAT, MAFIA O'YINIGA CHORLOV!</b> 🕵️‍♂️🔥\n\n"
+            f"{tg_emoji('trigger', '📢')} <b>DIQQAT, MAFIA O'YINIGA CHORLOV!</b> {tg_emoji('detective', '🕵️‍♂️')}🔥\n\n"
             f"{caller_str}"
             f"Qotillar shahar ko'chalarida kezib yuribdi! Haqiqiy detektiv kim, ayyor mafiya kim — o'yinda aniqlaymiz! 🎭\n\n"
-            f"👥 <b>Chaqirilganlar{batch_label}:</b>\n"
+            f"{tg_emoji('civilian', '👥')} <b>Chaqirilganlar{batch_label}:</b>\n"
             f"{first_mentions}\n\n"
             f"{action_hint}"
         )
@@ -131,7 +131,7 @@ async def call_players_in_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
             await asyncio.sleep(0.4)
             b_mentions = "\n".join(f"• {make_mention(m)}" for m in chunk)
             b_text = (
-                f"👥 <b>Chaqirilganlar ({idx}/{len(chunks)}):</b>\n"
+                f"{tg_emoji('civilian', '👥')} <b>Chaqirilganlar ({idx}/{len(chunks)}):</b>\n"
                 f"{b_mentions}"
             )
             await context.bot.send_message(
@@ -142,17 +142,17 @@ async def call_players_in_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
     else:
         if lobby and lobby.get("open") and lobby.get("players"):
             text = (
-                f"📢 <b>DIQQAT!</b>\n\n"
+                f"{tg_emoji('trigger', '📢')} <b>DIQQAT!</b>\n\n"
                 f"{caller_str}"
                 f"🎉 Barcha ma'lum o'yinchilar allaqachon lobbiyda!\n"
                 f"O'yinni boshlash uchun <b>/startgame</b> buyrug'ini bering."
             )
         else:
             text = (
-                f"📢 <b>Diqqat, barcha shahar ahli!</b>\n\n"
+                f"{tg_emoji('trigger', '📢')} <b>Diqqat, barcha shahar ahli!</b>\n\n"
                 f"{caller_str}"
                 f"Yangi Mafia o'yini boshlanmoqda! Haqiqiy detektiv kim, ayyor qotil kim — sinab ko'ring!\n\n"
-                f"🎮 O'yin ochish uchun <b>/game</b> buyrug'ini yuboring!"
+                f"{tg_emoji('game_start', '🎮')} O'yin ochish uchun <b>/game</b> buyrug'ini yuboring!"
             )
         await context.bot.send_message(
             chat_id=chat_id,
@@ -173,7 +173,7 @@ async def create_lobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
             ])
             await msg.reply_text(
-                "🎮 <b>Mafia O'yini (/game)</b>\n\n"
+                f"{tg_emoji('game_start', '🎮')} <b>Mafia O'yini (/game)</b>\n\n"
                 "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
                 "O'yin ochish uchun botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
                 reply_markup=add_kb,

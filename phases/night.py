@@ -1,6 +1,7 @@
 import asyncio
 import random
 import logging
+import html
 from typing import Dict, Any, List, Optional, Set
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
@@ -610,25 +611,25 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
             [return_to_group_button(game)]
         ])
         king_text = (
-            f"👑 *QIROLGA HUJUM BO'LDI!*\n\n"
-            f"👤 Hujumchi: *{display_name(game, k_attacker)}*\n"
-            f"🎭 Roli: *{k_atk_role}*\n\n"
-            f"⚖️ Qatl qilish yoki avf etishni tanlang ({DEFAULT_KING_TIMEOUT_SECONDS} soniya):"
+            f"{tg_emoji('boss', '👑')} <b>QIROLGA HUJUM BO'LDI!</b>\n\n"
+            f"👤 Hujumchi: <b>{html.escape(display_name(game, k_attacker))}</b>\n"
+            f"🎭 Roli: <b>{k_atk_role}</b>\n\n"
+            f"{tg_emoji('voting', '⚖️')} Qatl qilish yoki avf etishni tanlang ({DEFAULT_KING_TIMEOUT_SECONDS} soniya):"
         )
         try:
             await context.bot.send_message(
                 chat_id=k_target,
                 text=king_text,
                 reply_markup=king_kb,
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
             msg_sent = True
         except Exception as e:
-            log.warning("Could not send King prompt to user %s with Markdown (%s), retrying plain text", k_target, e)
+            log.warning("Could not send King prompt to user %s with HTML (%s), retrying plain text", k_target, e)
             try:
                 await context.bot.send_message(
                     chat_id=k_target,
-                    text=king_text.replace("*", "").replace("_", ""),
+                    text=king_text.replace("<b>", "").replace("</b>", ""),
                     reply_markup=king_kb,
                     parse_mode=None
                 )
@@ -690,7 +691,7 @@ async def complete_night_resolution(
                         chat_id=uid,
                         text="⚠️ Siz ushbu o'yinda bu buyumdan (Tungi himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                         reply_markup=return_to_group_keyboard(game),
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
@@ -701,9 +702,9 @@ async def complete_night_resolution(
             try:
                 await context.bot.send_message(
                     chat_id=uid,
-                    text="🛡️ *SHOP HIMOYASI ISHLADI!* Sizga qilingan tungi hujum qaytarildi (1 ta himoya sarflandi).\n⚠️ *Eslatma:* Ushbu buyumdan har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    text=f"{tg_emoji('item_shield', '🛡️', 'SHOP')} <b>SHOP HIMOYASI ISHLADI!</b> Sizga qilingan tungi hujum qaytarildi (1 ta himoya sarflandi).\n⚠️ <b>Eslatma:</b> Ushbu buyumdan har bir o'yinda faqat 1 marta foydalanish mumkin.",
                     reply_markup=return_to_group_keyboard(game),
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -734,7 +735,7 @@ async def complete_night_resolution(
                         chat_id=victim_uid,
                         text="⚠️ Siz ushbu o'yinda bu buyumdan (Qasos pichog'i) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                         reply_markup=return_to_group_keyboard(game),
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
@@ -745,9 +746,9 @@ async def complete_night_resolution(
             try:
                 await context.bot.send_message(
                     chat_id=victim_uid,
-                    text="🔪 *QASOS PICHOG'I ISHLADI!* Siz o'limingiz oldidan hujumchi ustidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    text=f"{tg_emoji('item_knife', '🔪', 'SHOP')} <b>QASOS PICHOG'I ISHLADI!</b> Siz o'limingiz oldidan hujumchi ustidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ <b>Eslatma:</b> Har bir o'yinda faqat 1 marta foydalanish mumkin.",
                     reply_markup=return_to_group_keyboard(game),
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -766,12 +767,12 @@ async def complete_night_resolution(
                     await context.bot.send_message(
                         chat_id=tourist_uid,
                         text=(
-                            f"🚶 *SAYYOH TASHRIFI GUVOXLIGI*\n\n"
-                            f"Siz *{display_name(game, visited_uid)}*ning uyida edingiz.\n"
-                            f"Ko'zingiz oldida *{killer_name}* ({killer_role}) hujum qildi!"
+                            f"🚶 <b>SAYYOH TASHRIFI GUVOXLIGI</b>\n\n"
+                            f"Siz <b>{html.escape(display_name(game, visited_uid))}</b>ning uyida edingiz.\n"
+                            f"Ko'zingiz oldida <b>{html.escape(killer_name)}</b> ({killer_role}) hujum qildi!"
                         ),
                         reply_markup=return_to_group_keyboard(game),
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
@@ -831,7 +832,7 @@ async def complete_night_resolution(
                             chat_id=tgt,
                             text="⚠️ Siz ushbu o'yinda bu buyumdan (Soxta hujjat) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                             reply_markup=return_to_group_keyboard(game),
-                            parse_mode="Markdown"
+                            parse_mode="HTML"
                         )
                     except Exception:
                         pass
@@ -841,9 +842,9 @@ async def complete_night_resolution(
                 try:
                     await context.bot.send_message(
                         chat_id=tgt,
-                        text="📄 *SOXTA HUJJAT ISHLADI!* Detektiv sizni tekshirdi, ammo soxta hujjatingiz tufayli sizni 'Fuqaro' deb bildi (1 ta hujjat sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                        text=f"{tg_emoji('item_doc', '📄', 'SHOP')} <b>SOXTA HUJJAT ISHLADI!</b> Detektiv sizni tekshirdi, ammo soxta hujjatingiz tufayli sizni 'Fuqaro' deb bildi (1 ta hujjat sarflandi).\n⚠️ <b>Eslatma:</b> Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                         reply_markup=return_to_group_keyboard(game),
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
@@ -1003,10 +1004,10 @@ async def handle_king_decision(
                 await context.bot.send_message(
                     chat_id=game.get("chat"),
                     text=(
-                        "👑 ⏱️ *Qirol javob bermadi (AFK).*\n"
-                        f"Hujumchi *{display_name(game, attacker_uid)}* avtomatik afv etildi va o'yin davom etmoqda."
+                        f"{tg_emoji('boss', '👑')} {tg_emoji('timer', '⏱️')} <b>Qirol javob bermadi (AFK).</b>\n"
+                        f"Hujumchi <b>{html.escape(display_name(game, attacker_uid))}</b> avtomatik afv etildi va o'yin davom etmoqda."
                     ),
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass

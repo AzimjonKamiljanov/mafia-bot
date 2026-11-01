@@ -346,13 +346,12 @@ from telegram.request import HTTPXRequest
 from telegram.ext import ExtBot
 
 class SafeExtBot(ExtBot):
-    """ExtBot subclass that guarantees parse_mode='HTML' for <tg-emoji> tags and gracefully retries with sanitized tags on entity parsing failures."""
+    """ExtBot subclass that strictly enforces parse_mode='HTML' for <tg-emoji> tags and gracefully retries on entity parsing failures."""
     async def _do_post(self, endpoint, data=None, *args, **kwargs):
         if data and isinstance(data, dict):
             for k in ("text", "caption"):
                 if k in data and isinstance(data[k], str) and "<tg-emoji" in data[k]:
-                    if not data.get("parse_mode"):
-                        data["parse_mode"] = "HTML"
+                    data["parse_mode"] = "HTML"
         try:
             return await super()._do_post(endpoint, data, *args, **kwargs)
         except Exception as e:
@@ -364,7 +363,14 @@ class SafeExtBot(ExtBot):
                     if k in retry_data and isinstance(retry_data[k], str) and "<tg-emoji" in retry_data[k]:
                         from core.visuals import strip_anim_emoji_tags
                         retry_data[k] = strip_anim_emoji_tags(retry_data[k])
-                return await super()._do_post(endpoint, retry_data, *args, **kwargs)
+                try:
+                    return await super()._do_post(endpoint, retry_data, *args, **kwargs)
+                except Exception as retry_err:
+                    if "can't parse entities" in str(retry_err).lower():
+                        retry_data_plain = dict(retry_data)
+                        retry_data_plain.pop("parse_mode", None)
+                        return await super()._do_post(endpoint, retry_data_plain, *args, **kwargs)
+                    raise
             raise
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):

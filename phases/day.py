@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import html
 from typing import Dict, Any, List
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
@@ -59,14 +60,15 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         lines.append(f"{tg_emoji('dead', '💀')} <b>Qurbonlar:</b>")
         for uid in deaths:
             name = display_name(game, uid)
+            escaped_name = html.escape(name)
             role = game.get("roles", {}).get(uid, "Fuqaro")
             cause_list = causes.get(uid, ["Noma'lum sabab"])
             cause_str = ", ".join(cause_list)
             clue = clues.get(uid)
 
-            lines.append(f"• <b>{name}</b> — {role} ({cause_str})")
+            lines.append(f"• <b>{escaped_name}</b> — {role} ({cause_str})")
             if clue:
-                lines.append(f"  {tg_emoji('investigation', '🔎')} <b>Ashyoviy dalil:</b> {clue['summary']}")
+                lines.append(f"  {tg_emoji('investigation', '🔎')} <b>Ashyoviy dalil:</b> {html.escape(clue['summary'])}")
 
             # Fetch and broadcast Last Will
             will = await fetch_player_will(uid)
@@ -86,12 +88,12 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
                 pass
     else:
         lines.append("")
-        lines.append("🕊️ Bu kecha hech kim halok bo'lmadi. Shaharda osoyishtalik!")
+        lines.append(f"🕊️ {tg_emoji('civilian_win', '🕊️')} Bu kecha hech kim halok bo'lmadi. Shaharda osoyishtalik!")
 
     day_seconds = int(game.get("settings", {}).get("day_seconds", 15))
     lines.extend([
         "",
-        f"💬 Shahar uyg'ondi. Muhokama boshlandi! ({day_seconds} soniya)",
+        f"💬 Shahar uyg'ondi. Muhokama boshlandi! ({tg_emoji('timer', '⏱️')} <b>{day_seconds} soniya</b>)",
         "Gumonlaringizni muhokama qiling va dalillarni tahlil qiling."
     ])
 

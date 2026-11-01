@@ -268,13 +268,14 @@ async def finish_game(
     elif joker:
         victory_header = "🃏 <b>JOKER G'ALABA QOZONDI!</b>\n\n"
 
+    winners_emoji = tg_emoji('mafia_win', '🩸') if winning_team == "red" else (tg_emoji('civilian_win', '🏆') if winning_team == "blue" else "🃏")
     lines = [
         f"{tg_emoji('dead', '💀')} <b>Tunda o'ldirilganlar:</b>",
         *killed_lines,
         "",
         f"{victory_header}{tg_emoji('game_start', '🎬')} <b>O'yin tugadi!</b>",
         "",
-        f"{tg_emoji('civilian_win', '🏆')} <b>G'oliblar:</b>",
+        f"{winners_emoji} <b>G'oliblar:</b>",
         *winner_lines,
     ]
     if other_lines:

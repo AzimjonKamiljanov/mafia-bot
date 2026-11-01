@@ -151,8 +151,9 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
         # No suspect chosen, proceed to night
         await context.bot.send_message(
             chat_id=chat_id,
-            text="🕊️ Hech kim sud minbariga chiqarilmadi. Shahar yana tun quchog'iga kirdi.",
-            reply_markup=action_kb
+            text=f"🕊️ {tg_emoji('night', '🌙')} <b>Hech kim sud minbariga chiqarilmadi. Shahar yana tun quchog'iga kirdi.</b>",
+            reply_markup=action_kb,
+            parse_mode="HTML"
         )
         game["night"] = game.get("night", 1) + 1
         from phases.night import start_night
@@ -166,8 +167,9 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
     if len(sorted_targets) > 1 and sorted_targets[1][1] == top_votes:
         await context.bot.send_message(
             chat_id=chat_id,
-            text="⚖️ Ovozlar teng keldi! Shahar ikkilanib qoldi va hech kim sud minbariga chiqarilmadi.",
-            reply_markup=action_kb
+            text=f"{tg_emoji('voting', '⚖️')} <b>Ovozlar teng keldi!</b> Shahar ikkilanib qoldi va hech kim sud minbariga chiqarilmadi.",
+            reply_markup=action_kb,
+            parse_mode="HTML"
         )
         game["night"] = game.get("night", 1) + 1
         from phases.night import start_night

@@ -588,3 +588,193 @@ def test_custom_emojis_full_suite():
     legacy_tag = '<tg-emoji emoji-id="789">🌙</tg-emoji> Tun'
     assert strip_anim_emoji_tags(legacy_tag) == "🌙 Tun"
 
+
+@pytest.mark.asyncio
+async def test_safe_ext_bot_overrides_markdown_for_tg_emoji():
+    """Verify SafeExtBot overrides parse_mode='Markdown' to 'HTML' when <tg-emoji> is present."""
+    from telegram.ext import ExtBot
+    from bot import SafeExtBot
+    from core.emojis import tg_emoji
+
+    bot = SafeExtBot("123456:FAKE_TOKEN_FOR_TEST")
+    
+    captured_data = []
+    async def mock_super_do_post(self, endpoint, data=None, *args, **kwargs):
+        captured_data.append(dict(data) if data else {})
+        return {"ok": True, "result": {"message_id": 123}}
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(ExtBot, "_do_post", mock_super_do_post)
+
+        # 1. Text with tg-emoji and parse_mode="Markdown" -> overridden to "HTML"
+        text_with_emoji = f"{tg_emoji('mafia')} Killer"
+        await bot._do_post("sendMessage", {"chat_id": 123, "text": text_with_emoji, "parse_mode": "Markdown"})
+        assert len(captured_data) == 1
+        assert captured_data[-1]["parse_mode"] == "HTML"
+
+        # 2. Caption with tg-emoji and parse_mode="Markdown" -> overridden to "HTML"
+        cap_with_emoji = f"{tg_emoji('night')} Night time"
+        await bot._do_post("sendPhoto", {"chat_id": 123, "caption": cap_with_emoji, "parse_mode": "Markdown"})
+        assert len(captured_data) == 2
+        assert captured_data[-1]["parse_mode"] == "HTML"
+
+        # 3. Text without tg-emoji and parse_mode="Markdown" -> untouched
+        plain_md = "*Bold* text"
+        await bot._do_post("sendMessage", {"chat_id": 123, "text": plain_md, "parse_mode": "Markdown"})
+        assert len(captured_data) == 3
+        assert captured_data[-1]["parse_mode"] == "Markdown"
+
+
+@pytest.mark.asyncio
+async def test_shop_inventory_render_and_badge_activation():
+    """Verify render_shop_inventory and shop_items alias function without NameError."""
+    from handlers.shop import render_shop_inventory, shop_items, shop_callback_handler
+    from database.models import ensure_user, save_owned_badge
+
+    await init_db()
+    uid = 88001
+    mock_user = MagicMock()
+    mock_user.id = uid
+    mock_user.first_name = "ShopUser"
+    mock_user.username = "shop_user"
+    mock_user.full_name = "ShopUser"
+    await ensure_user(mock_user)
+    await save_owned_badge(uid, "crown", "👑 Toj")
+
+    # Verify alias exists and is callable
+    assert shop_items == render_shop_inventory
+
+    # Test badge activation callback
+    q = AsyncMock()
+    q.data = "item:badge:crown"
+    q.from_user = mock_user
+    q.answer = AsyncMock()
+    q.edit_message_text = AsyncMock()
+    up = MagicMock()
+    up.callback_query = q
+    ctx = MagicMock()
+
+    await shop_callback_handler(up, ctx)
+    assert q.answer.called
+    assert "faollashtirildi" in q.answer.call_args[0][0]
+    assert q.edit_message_text.called
+
+    # Test badge deactivation callback
+    q.reset_mock()
+    q.data = "item:off"
+    await shop_callback_handler(up, ctx)
+    assert q.answer.called
+    assert "olib tashlandi" in q.answer.call_args[0][0]
+    assert q.edit_message_text.called
+
+
+@pytest.mark.asyncio
+async def test_will_formatting_html_with_custom_emoji():
+    """Verify format_will_announcement produces valid HTML with tg_emoji."""
+    from core.will import format_will_announcement
+
+    out = format_will_announcement("Ali <Sher>", "Haqiqat egiladi, bukilmaydi!")
+    assert "<tg-emoji" in out
+    assert "<b>Ali &lt;Sher&gt;ning So'nggi Vasiyatnomasi:</b>" in out
+    assert "<blockquote><i>Haqiqat egiladi, bukilmaydi!</i></blockquote>" in out
+
+
+@pytest.mark.asyncio
+async def test_start_act_deep_link_html_parse_mode():
+    """Verify that /start act_<chat_id> uses HTML parse mode for all phases."""
+    from handlers.commands import start_cmd
+    from core.engine import games
+
+    chat_id = -1008899
+    game = {
+        "chat": chat_id,
+        "players": [99901],
+        "names": {99901: "Tester"},
+        "roles": {99901: "Fuqaro"},
+        "alive": {99901: True},
+        "phase": "night",
+        "night": 1,
+        "night_done": set(),
+        "group_link": "https://t.me/test_group"
+    }
+    games[chat_id] = game
+
+    mock_context = MagicMock()
+    up = MagicMock()
+    up.effective_user.id = 99901
+    up.effective_user.full_name = "Tester"
+    up.effective_user.username = "tester"
+    up.effective_chat.type = "private"
+    up.message.reply_text = AsyncMock()
+
+    mock_context.args = [f"act_{chat_id}"]
+
+    # 1. Night phase
+    await start_cmd(up, mock_context)
+    assert up.message.reply_text.called
+    assert up.message.reply_text.call_args[1].get("parse_mode") == "HTML"
+
+    # 2. Voting phase
+    game["phase"] = "voting"
+    up.message.reply_text.reset_mock()
+    await start_cmd(up, mock_context)
+    assert up.message.reply_text.called
+    assert up.message.reply_text.call_args[1].get("parse_mode") == "HTML"
+
+    # 3. Verdict phase
+    game["phase"] = "verdict"
+    game["accused_uid"] = 99901
+    up.message.reply_text.reset_mock()
+    await start_cmd(up, mock_context)
+    assert up.message.reply_text.called
+    assert up.message.reply_text.call_args[1].get("parse_mode") == "HTML"
+
+    # 4. Graveyard (dead player)
+    game["alive"][99901] = False
+    up.message.reply_text.reset_mock()
+    await start_cmd(up, mock_context)
+    assert up.message.reply_text.called
+    assert up.message.reply_text.call_args[1].get("parse_mode") == "HTML"
+
+    games.pop(chat_id, None)
+
+
+@pytest.mark.asyncio
+async def test_commands_custom_emoji_rich_output():
+    """Verify plan, boost, goal, and teamwork commands output custom emoji tags."""
+    from handlers.commands import plan_cmd, boost_cmd, goal_cmd, teamwork_cmd
+
+    up = MagicMock()
+    up.effective_user.id = 7651553630
+    up.effective_user.username = "rasuljonovv_a"
+    up.effective_user.first_name = "Admin"
+    up.effective_chat.type = "private"
+    up.effective_chat.id = 7651553630
+    up.message.reply_text = AsyncMock()
+    up.effective_message = up.message
+    ctx = MagicMock()
+
+    # /plan
+    await plan_cmd(up, ctx)
+    plan_out = up.message.reply_text.call_args[0][0]
+    assert "<tg-emoji document-id=" in plan_out
+
+    # /boost
+    up.message.reply_text.reset_mock()
+    await boost_cmd(up, ctx)
+    boost_out = up.message.reply_text.call_args[0][0]
+    assert "<tg-emoji document-id=" in boost_out
+
+    # /goal
+    up.message.reply_text.reset_mock()
+    await goal_cmd(up, ctx)
+    goal_out = up.message.reply_text.call_args[0][0]
+    assert "<tg-emoji document-id=" in goal_out
+
+    # /teamwork
+    up.message.reply_text.reset_mock()
+    await teamwork_cmd(up, ctx)
+    tw_out = up.message.reply_text.call_args[0][0]
+    assert "<tg-emoji document-id=" in tw_out
+
+

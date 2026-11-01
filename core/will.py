@@ -12,12 +12,17 @@ async def fetch_player_will(user_id: int) -> str:
     return await get_will(user_id)
 
 def format_will_announcement(player_name: str, will_text: Optional[str]) -> str:
+    import html
+    from core.emojis import tg_emoji
+    clean_name = html.escape(str(player_name))
+    doc_icon = tg_emoji("item_doc", "📜", "SHOP")
     if not will_text or not will_text.strip():
-        return f"📜 *{player_name}* hech qanday vasiyatnoma qoldirmagan."
+        return f"{doc_icon} <b>{clean_name}</b> hech qanday vasiyatnoma qoldirmagan."
 
+    clean_will = html.escape(will_text.strip())
     lines = [
-        f"📜 *{player_name}ning So'nggi Vasiyatnomasi:*",
-        f"> _{will_text.strip()}_"
+        f"{doc_icon} <b>{clean_name}ning So'nggi Vasiyatnomasi:</b>",
+        f"<blockquote><i>{clean_will}</i></blockquote>"
     ]
     return "\n".join(lines)
 

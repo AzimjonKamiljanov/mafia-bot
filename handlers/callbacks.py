@@ -26,6 +26,7 @@ from core.last_words import LAST_WORD_TEMPLATES, deliver_last_words
 from core.atmospheric_feed import broadcast_role_action
 from core.afk_penalty import record_player_activity
 from core.navigation import return_to_group_keyboard
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.handlers.callbacks")
 
@@ -695,7 +696,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 chat_id=target,
                                 text="⚠️ Siz ushbu o'yinda bu buyumdan (Soxta hujjat) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                                 reply_markup=return_to_group_keyboard(game),
-                                parse_mode="Markdown"
+                                parse_mode="HTML"
                             )
                         except Exception:
                             pass
@@ -705,17 +706,17 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     try:
                         await context.bot.send_message(
                             chat_id=target,
-                            text="📄 *SOXTA HUJJAT ISHLADI!* Sherif sizni tekshirdi, ammo soxta hujjatingiz tufayli sizni oddiy fuqaro deb bildi (1 ta hujjat sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                            text=f"{tg_emoji('item_doc', '📄', 'SHOP')} <b>SOXTA HUJJAT ISHLADI!</b> Sherif sizni tekshirdi, ammo soxta hujjatingiz tufayli sizni oddiy fuqaro deb bildi (1 ta hujjat sarflandi).\n⚠️ <b>Eslatma:</b> Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                             reply_markup=return_to_group_keyboard(game),
-                            parse_mode="Markdown"
+                            parse_mode="HTML"
                         )
                     except Exception:
                         pass
-            team_str = "🔴 QIZIL JAMOA (MAFIA)" if is_red else "🔵 QIZIL EMAS (TINCH FUQARO)"
+            team_str = f"{tg_emoji('mafia_team', '🔴')} <b>QIZIL JAMOA (MAFIA)</b>" if is_red else f"{tg_emoji('civilian_team', '🔵')} <b>QIZIL EMAS (TINCH FUQARO)</b>"
             await q.message.reply_text(
-                f"👮 *SHERIF TEKSHIRUVI:*\n\n👤 {tgt_name} — {team_str}",
+                f"{tg_emoji('sheriff', '👮‍♂️')} <b>SHERIF TEKSHIRUVI:</b>\n\n👤 {html.escape(tgt_name)} — {team_str}",
                 reply_markup=return_to_group_keyboard(game),
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
         elif action == "protect":
             if target == actor:
@@ -901,7 +902,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"🧊 <b>{html.escape(voter_name)}</b> gumon qildi: <b>{html.escape(target_name)}</b>",
+                text=f"{tg_emoji('voting', '🧊')} <b>{html.escape(voter_name)}</b> gumon qildi: <b>{html.escape(target_name)}</b>",
                 parse_mode="HTML"
             )
         except Exception:
@@ -945,9 +946,9 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if q.message and q.message.chat.type == "private":
             try:
                 await q.edit_message_text(
-                    f"✅ Sud hukmingiz qayd etildi: *{choice_str}*.\n\nEndi guruhga qaytib natijani kuting.",
+                    f"✅ Sud hukmingiz qayd etildi: <b>{choice_str}</b>.\n\nEndi guruhga qaytib natijani kuting.",
                     reply_markup=return_to_group_keyboard(game),
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -955,7 +956,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"⚖️ <b>{html.escape(voter_name)}</b> hukm chiqardi: <b>{choice_str}</b>",
+                text=f"{tg_emoji('voting', '⚖️')} <b>{html.escape(voter_name)}</b> hukm chiqardi: <b>{choice_str}</b>",
                 parse_mode="HTML"
             )
         except Exception:

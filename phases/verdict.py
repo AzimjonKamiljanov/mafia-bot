@@ -95,11 +95,14 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
     kill_weight = sum(3 if u in mayor_revealed else 1 for u in kill_votes)
     forgive_weight = sum(3 if u in mayor_revealed else 1 for u in forgive_votes)
 
+    import html
+    escaped_accused = html.escape(accused_name)
+
     lines = [
-        f"⚖️ *Hukm natijasi ({accused_name}):*",
+        f"{tg_emoji('voting', '⚖️')} <b>Hukm natijasi ({escaped_accused}):</b>",
         "",
-        f"⚔️ Qatl: {kill_weight} ta ovoz ({len(kill_votes)} kishi)",
-        f"🕊️ Afv: {forgive_weight} ta ovoz ({len(forgive_votes)} kishi)",
+        f"⚔️ Qatl: <b>{kill_weight} ta ovoz ({len(kill_votes)} kishi)</b>",
+        f"🕊️ Afv: <b>{forgive_weight} ta ovoz ({len(forgive_votes)} kishi)</b>",
         ""
     ]
 
@@ -110,11 +113,11 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
     verdict_res_kb = bot_action_keyboard(chat_id, "💬 Botga o'tish (Amallar/Ovoz)")
 
     if is_amnesty:
-        lines.append("\n⚖️ *SUD AMNISTIYASI ISHLADI!*")
-        lines.append(f"Shaharda e'lon qilingan sud amnistiyasi farmoniga binoan, bugungi barcha qatl hukmlari bekor qilindi!")
-        lines.append(f"*{accused_name}* dor ostidan ozod qilindi va omon qoldi.")
+        lines.append(f"\n{tg_emoji('voting', '⚖️')} <b>SUD AMNISTIYASI ISHLADI!</b>")
+        lines.append("Shaharda e'lon qilingan sud amnistiyasi farmoniga binoan, bugungi barcha qatl hukmlari bekor qilindi!")
+        lines.append(f"<b>{escaped_accused}</b> dor ostidan ozod qilindi va omon qoldi.")
         try:
-            await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="Markdown")
+            await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="HTML")
         except Exception:
             await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb)
         game["night"] = game.get("night", 1) + 1
@@ -127,10 +130,10 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         lawyer_clients = game.get("lawyer_clients", {})
         saved_by_lawyer = any(client == accused_uid for client in lawyer_clients.values())
         if saved_by_lawyer:
-            lines.append("\n⚖️ *ADVOKAT ARALASHUVI!*")
-            lines.append(f"Advokat o'z vakolatidan foydalanib, *{accused_name}*ni dorga osilishdan saqlab qoldi!")
+            lines.append(f"\n{tg_emoji('voting', '⚖️')} <b>ADVOKAT ARALASHUVI!</b>")
+            lines.append(f"Advokat o'z vakolatidan foydalanib, <b>{escaped_accused}</b>ni dorga osilishdan saqlab qoldi!")
             try:
-                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="Markdown")
+                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="HTML")
             except Exception:
                 await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb)
             game["night"] = game.get("night", 1) + 1
@@ -157,25 +160,25 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
                         chat_id=accused_uid,
                         text="⚠️ Siz ushbu o'yinda bu buyumdan (Qatldan himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                         reply_markup=verdict_res_kb,
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
                 except Exception:
                     pass
 
         if saved_by_shield:
-            lines.append("\n👑 *HUKMDAN HIMOYA ISHLADI!*")
-            lines.append(f"*{accused_name}* maxsus do'kon himoyasini ishlatdi va qatldan qutuldi (Har bir o'yinda faqat 1 marta ishlatish mumkin).")
+            lines.append(f"\n{tg_emoji('don', '👑')} <b>HUKMDAN HIMOYA ISHLADI!</b>")
+            lines.append(f"<b>{escaped_accused}</b> maxsus do'kon himoyasini ishlatdi va qatldan qutuldi (Har bir o'yinda faqat 1 marta ishlatish mumkin).")
             try:
                 await context.bot.send_message(
                     chat_id=accused_uid,
-                    text="👑 *QATLDAN HIMOYA ISHLADI!* Siz maxsus do'kon himoyasini ishlatib qatldan omon qoldingiz (1 ta buyum sarflandi).\n⚠️ *Eslatma:* Ushbu buyumdan har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    text=f"{tg_emoji('don', '👑')} <b>QATLDAN HIMOYA ISHLADI!</b> Siz maxsus do'kon himoyasini ishlatib qatldan omon qoldingiz (1 ta buyum sarflandi).\n⚠️ <b>Eslatma:</b> Ushbu buyumdan har bir o'yinda faqat 1 marta foydalanish mumkin.",
                     reply_markup=verdict_res_kb,
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
             try:
-                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="Markdown")
+                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="HTML")
             except Exception:
                 await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb)
             game["night"] = game.get("night", 1) + 1
@@ -185,10 +188,10 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
 
         # 3. JOKER WIN CHECK
         if accused_role == "Joker":
-            lines.append("\n🃏 *JOKER MAQSADIGA YETDI!*")
-            lines.append(f"Telba Joker *{accused_name}* butun shaharni aldab, o'zini osishlariga erishdi!")
+            lines.append("\n🃏 <b>JOKER MAQSADIGA YETDI!</b>")
+            lines.append(f"Telba Joker <b>{escaped_accused}</b> butun shaharni aldab, o'zini osishlariga erishdi!")
             try:
-                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="Markdown")
+                await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="HTML")
             except Exception:
                 await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb)
             await finish_game(context, game, [accused_uid], joker=True)
@@ -227,7 +230,7 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
                             chat_id=accused_uid,
                             text="⚠️ Siz ushbu o'yinda bu buyumdan (Qasos pichog'i) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                             reply_markup=verdict_res_kb,
-                            parse_mode="Markdown"
+                            parse_mode="HTML"
                         )
                     except Exception:
                         pass
@@ -245,19 +248,19 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         if kamikadze_victim and game["alive"].get(kamikadze_victim, False):
             game["alive"][kamikadze_victim] = False
             kv_name = display_name(game, kamikadze_victim)
-            lines.append(f"\n💣 *KAMIKADZE PORTLASHI!*\n*{accused_name}* o'zi bilan birga ayblovchi *{kv_name}*ni ham portlatib ketdi!")
+            lines.append(f"\n💣 <b>KAMIKADZE PORTLASHI!</b>\n<b>{escaped_accused}</b> o'zi bilan birga ayblovchi <b>{html.escape(kv_name)}</b>ni ham portlatib ketdi!")
 
         # Deliver Qasoskor retaliation if triggered
         if qasoskor_victim and game["alive"].get(qasoskor_victim, False):
             game["alive"][qasoskor_victim] = False
             qv_name = display_name(game, qasoskor_victim)
-            lines.append(f"\n⚔️ *QASOSKORNING SO'NGGI ZARBASI!*\n*{accused_name}* o'zi bilan birga *{qv_name}*ni ham narigi dunyoga tortib ketdi!")
+            lines.append(f"\n⚔️ <b>QASOSKORNING SO'NGGI ZARBASI!</b>\n<b>{escaped_accused}</b> o'zi bilan birga <b>{html.escape(qv_name)}</b>ni ham narigi dunyoga tortib ketdi!")
 
         # Deliver Revenge Knife strike if triggered
         if knife_victim and game["alive"].get(knife_victim, False):
             game["alive"][knife_victim] = False
             rkv_name = display_name(game, knife_victim)
-            lines.append(f"\n{tg_emoji('mafia', '🔪')} <b>QASOS PICHOG'I ISHLADI!</b>\n*{accused_name}* o'limi oldidan yashirin qasos pichog'ini ishlatib, qatl tarafdori *{rkv_name}*ni o'ldirdi (Har bir o'yinda faqat 1 marta ishlatish mumkin)!")
+            lines.append(f"\n{tg_emoji('mafia', '🔪')} <b>QASOS PICHOG'I ISHLADI!</b>\n<b>{escaped_accused}</b> o'limi oldidan yashirin qasos pichog'ini ishlatib, qatl tarafdori <b>{html.escape(rkv_name)}</b>ni o'ldirdi (Har bir o'yinda faqat 1 marta ishlatish mumkin)!")
             try:
                 await context.bot.send_message(
                     chat_id=accused_uid,
@@ -322,7 +325,7 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
             log.warning("Could not prompt last words: %s", e)
 
     else:
-        lines.append(f"\n🕊️ *SHAHAR AVF ETDI:* *{accused_name}* omon qoldi va o'yin davom etadi.")
+        lines.append(f"\n🕊️ <b>SHAHAR AVF ETDI:</b> <b>{escaped_accused}</b> omon qoldi va o'yin davom etadi.")
 
     sound_marker = "execution" if (kill_weight > forgive_weight) else "saved"
     await send_atmospheric_message(
@@ -330,7 +333,8 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
         chat_id=chat_id,
         text="\n".join(lines),
         sound_type=sound_marker,
-        reply_markup=verdict_res_kb
+        reply_markup=verdict_res_kb,
+        parse_mode="HTML"
     )
     await save_runtime(game)
 

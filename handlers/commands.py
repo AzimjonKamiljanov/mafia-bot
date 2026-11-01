@@ -114,29 +114,29 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 night_num = active_game.get("night", 1)
                                 if uid in active_game.get("night_done", set()):
                                     await update.message.reply_text(
-                                        f"🌙 *Tun #{night_num}*\n"
-                                        f"🎭 Sizning rolingiz: *{role}*\n\n"
+                                        f"{tg_emoji('night', '🌙')} <b>Tun #{night_num}</b>\n"
+                                        f"🎭 Sizning rolingiz: <b>{html.escape(role)}</b>\n\n"
                                         "✅ Siz bugungi tungi amalingizni allaqachon bajardingiz. Tong otishini kuting!",
                                         reply_markup=return_to_group_keyboard(active_game),
-                                        parse_mode="Markdown"
+                                        parse_mode="HTML"
                                     )
                                 else:
                                     kb = get_role_action_buttons(active_game, uid)
                                     if kb:
                                         await update.message.reply_text(
-                                            f"🌙 *Tun #{night_num} amallari*\n"
-                                            f"🎭 Sizning rolingiz: *{role}*\n"
+                                            f"{tg_emoji('night', '🌙')} <b>Tun #{night_num} amallari</b>\n"
+                                            f"🎭 Sizning rolingiz: <b>{html.escape(role)}</b>\n"
                                             "Quyidagi tugmalardan birini tanlang:",
                                             reply_markup=kb,
-                                            parse_mode="Markdown"
+                                            parse_mode="HTML"
                                         )
                                     else:
                                         await update.message.reply_text(
-                                            f"🌙 *Tun #{night_num}*\n"
-                                            f"🎭 Sizning rolingiz: *{role}*\n\n"
+                                            f"{tg_emoji('night', '🌙')} <b>Tun #{night_num}</b>\n"
+                                            f"🎭 Sizning rolingiz: <b>{html.escape(role)}</b>\n\n"
                                             "Bu tunda sizdan maxsus amal talab etilmaydi. Tong otishini kuting!",
                                             reply_markup=return_to_group_keyboard(active_game),
-                                            parse_mode="Markdown"
+                                            parse_mode="HTML"
                                         )
                             elif phase == "voting":
                                 night_num = active_game.get("night", 1)
@@ -144,69 +144,69 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     tgt = active_game["votes"][uid]
                                     tgt_name = "🕊️ Hech kimga" if tgt == "none" else display_name(active_game, int(tgt))
                                     await update.message.reply_text(
-                                        f"🗳️ *Ovoz berish (#{night_num}-kun)*\n\n"
-                                        f"✅ Siz allaqachon ovoz bergansiz (*{tgt_name}*)!",
+                                        f"{tg_emoji('voting', '🗳️')} <b>Ovoz berish (#{night_num}-kun)</b>\n\n"
+                                        f"✅ Siz allaqachon ovoz bergansiz (<b>{html.escape(tgt_name)}</b>)!",
                                         reply_markup=return_to_group_keyboard(active_game),
-                                        parse_mode="Markdown"
+                                        parse_mode="HTML"
                                     )
                                 else:
                                     vkb = get_voting_keyboard(active_game, is_pm=True)
                                     await update.message.reply_text(
-                                        f"🗳️ *Ovoz berish (#{night_num}-kun)*\n\n"
+                                        f"{tg_emoji('voting', '🗳️')} <b>Ovoz berish (#{night_num}-kun)</b>\n\n"
                                         "Sud minbariga chiqarish uchun gumonlanuvchini tanlang:",
                                         reply_markup=vkb,
-                                        parse_mode="Markdown"
+                                        parse_mode="HTML"
                                     )
                             elif phase == "verdict":
                                 accused = active_game.get("accused_uid")
                                 accused_name = display_name(active_game, accused)
                                 if uid == accused:
                                     await update.message.reply_text(
-                                        f"⚖️ *Sud minbari*\n\n"
+                                        f"{tg_emoji('voting', '⚖️')} <b>Sud minbari</b>\n\n"
                                         "Siz hozir sud minbaridasiz! Fuqarolar sizning taqdiringizni hal qilmoqda.",
                                         reply_markup=return_to_group_keyboard(active_game),
-                                        parse_mode="Markdown"
+                                        parse_mode="HTML"
                                     )
                                 elif uid in active_game.get("verdict_votes", {}):
                                     v = active_game["verdict_votes"][uid]
                                     v_str = "⚔️ QATL" if v == "kill" else "🕊️ AFV"
                                     await update.message.reply_text(
-                                        f"⚖️ *Sud hukmi ({accused_name})*\n\n"
-                                        f"✅ Siz allaqachon ovoz bergansiz (*{v_str}*)!",
+                                        f"{tg_emoji('voting', '⚖️')} <b>Sud hukmi ({html.escape(accused_name)})</b>\n\n"
+                                        f"✅ Siz allaqachon ovoz bergansiz (<b>{v_str}</b>)!",
                                         reply_markup=return_to_group_keyboard(active_game),
-                                        parse_mode="Markdown"
+                                        parse_mode="HTML"
                                     )
                                 else:
                                     vkb = verdict_keyboard(target_chat_id, accused, is_pm=True, game_or_link=active_game)
                                     await update.message.reply_text(
-                                        f"⚖️ *Sud minbari*\n\n"
-                                        f"Ayblanuvchi: *{accused_name}*\n"
+                                        f"{tg_emoji('voting', '⚖️')} <b>Sud minbari</b>\n\n"
+                                        f"Ayblanuvchi: <b>{html.escape(accused_name)}</b>\n"
                                         "Uning taqdirini hal qiling: qatl etilsinmi yoki afv etilsin?",
                                         reply_markup=vkb,
-                                        parse_mode="Markdown"
+                                        parse_mode="HTML"
                                     )
                             else:
                                 await update.message.reply_text(
-                                    "☀️ *Kunduzgi muhokama fazasi!*\n\n"
+                                    f"{tg_emoji('day', '☀️')} <b>Kunduzgi muhokama fazasi!</b>\n\n"
                                     "Guruhga qaytib, boshqa o'yinchilar bilan fikr almashing va dalillarni tahlil qiling.",
                                     reply_markup=return_to_group_keyboard(active_game),
-                                    parse_mode="Markdown"
+                                    parse_mode="HTML"
                                 )
                             return
                         else:
                             await update.message.reply_text(
                                 graveyard_status_text(active_game, uid),
                                 reply_markup=graveyard_menu_keyboard(active_game.get("_db_id", 0), group_link=group_link),
-                                parse_mode="Markdown"
+                                parse_mode="HTML"
                             )
                             return
                     else:
                         await update.message.reply_text(
-                            "👁️ *Siz bu o'yinda tomoshabinsiz.*\n\n"
-                            f"Faza: *{active_game.get('phase', '').capitalize()}*\n"
-                            f"Tiriklar: *{sum(1 for v in active_game.get('alive', {}).values() if v)}* nafar",
+                            f"👁️ <b>Siz bu o'yinda tomoshabinsiz.</b>\n\n"
+                            f"Faza: <b>{active_game.get('phase', '').capitalize()}</b>\n"
+                            f"Tiriklar: <b>{sum(1 for v in active_game.get('alive', {}).values() if v)}</b> nafar",
                             reply_markup=return_to_group_keyboard(active_game),
-                            parse_mode="Markdown"
+                            parse_mode="HTML"
                         )
                         return
 
@@ -932,19 +932,19 @@ async def plan_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     plan_text = (
-        f"{anim_emoji('target', '🗺️')} <b>DETEKTIV MAFIA — TO'LIQ O'YIN REJASI VA MEXANIKASI</b>\n\n"
-        "✨ <b>1. O'yin Bosqichlari:</b>\n"
-        f"• {anim_emoji('moon', '🌙')} <b>Tun:</b> Yashirin harakatlar — Mafia suiqasdi, Shifokor davosi, Detektiv tekshiruvi.\n"
-        f"• {anim_emoji('sun', '☀️')} <b>Kun:</b> Shahar uyg'onadi, qurbonlar va tungi xabarlar e'lon qilinadi.\n"
-        f"• {anim_emoji('scales', '🗳')} <b>Ovoz berish:</b> Shahar gumonlanuvchini sudga tortish uchun ovoz beradi.\n"
-        f"• {anim_emoji('swords', '⚖️')} <b>Sud (Hukm):</b> Gumondor sud minbariga chiqadi. Shahar: ⚔️ Qatl yoki 🕊️ Afv!\n\n"
-        "🎭 <b>2. Rollar va Taqsimot Balansi:</b>\n"
-        "• 🔵 <b>Shahar (Town):</b> Detektiv, Sherif (faqat 7+ kishida), Doktor, Tansoqchi, Advokat, Sayyoh, Ruhshunos, Mer, Boy, Qirol, Savdogar, Fuqaro.\n"
-        "• 🔴 <b>Mafiya (Red):</b> Boshliq (Don), Qotil, Soya, Soxtachi, Maftunkor, Kamikadze, Bo'ri.\n"
-        "• 🟡 <b>Yakkaxonlar (Solo):</b> Joker, Maniak, Pirotexnik, Qasoskor, Pul o'g'risi, Firibgar.\n\n"
-        f"• {anim_emoji('shield', '🛡️')} <b>3. 3-Tun AFK Kafolati:</b>\n"
-        "Bir martalik ovoz bermaslikka jazo yo'q! Faqat ketma-ket 3 tun harakatsiz qolgandagina uxlash jarimasi beriladi.\n\n"
-        "⚙️ <b>Sozlamalar:</b> <code>/settings</code> orqali vaqtlar va rollarni moslashtiring! 🚀"
+        f"{tg_emoji('game_start', '🎮')} <b>DETEKTIV MAFIA — TO'LIQ O'YIN REJASI VA MEXANIKASI</b>\n\n"
+        f"{tg_emoji('trigger', '✨')} <b>1. O'yin Bosqichlari:</b>\n"
+        f"• {tg_emoji('night', '🌙')} <b>Tun:</b> Yashirin harakatlar — {tg_emoji('mafia', '🔪')} Mafia suiqasdi, {tg_emoji('doctor', '🩺')} Shifokor davosi, {tg_emoji('detective', '🕵️‍♂️')} Detektiv tekshiruvi.\n"
+        f"• {tg_emoji('day', '☀️')} <b>Kun:</b> Shahar uyg'onadi, {tg_emoji('dead', '💀')} qurbonlar va tungi xabarlar e'lon qilinadi.\n"
+        f"• {tg_emoji('voting', '🗳️')} <b>Ovoz berish:</b> Shahar gumonlanuvchini sudga tortish uchun ovoz beradi.\n"
+        f"• {tg_emoji('voting', '⚖️')} <b>Sud (Hukm):</b> Gumondor sud minbariga chiqadi. Shahar: ⚔️ Qatl yoki 🕊️ Afv!\n\n"
+        f"🎭 <b>2. Rollar va Taqsimot Balansi:</b>\n"
+        f"• {tg_emoji('civilian_team', '🔵')} <b>Shahar (Town):</b> {tg_emoji('detective', '🕵️‍♂️')} Detektiv, {tg_emoji('sheriff', '👮‍♂️')} Sherif (faqat 7+ kishida), {tg_emoji('doctor', '🩺')} Doktor, Tansoqchi, Advokat, Sayyoh, Ruhshunos, Mer, Boy, Qirol, Savdogar, Fuqaro.\n"
+        f"• {tg_emoji('mafia_team', '🔴')} <b>Mafiya (Red):</b> {tg_emoji('don', '👑')} Boshliq (Don), {tg_emoji('mafia', '🔪')} Qotil, Soya, Soxtachi, Maftunkor, Kamikadze, Bo'ri.\n"
+        f"• 🟡 <b>Yakkaxonlar (Solo):</b> Joker, Maniak, Pirotexnik, Qasoskor, Pul o'g'risi, Firibgar.\n\n"
+        f"• {tg_emoji('item_shield', '🛡️', 'SHOP')} <b>3. 3-Tun AFK Kafolati:</b>\n"
+        f"Bir martalik ovoz bermaslikka jazo yo'q! {tg_emoji('timer', '⏱️')} Faqat ketma-ket 3 tun harakatsiz qolgandagina uxlash jarimasi beriladi.\n\n"
+        f"⚙️ <b>Sozlamalar:</b> <code>/settings</code> orqali vaqtlar va rollarni moslashtiring! {tg_emoji('trigger', '🚀')}"
     )
     chat_id = chat.id if chat else 0
     buttons = []
@@ -962,14 +962,14 @@ async def boost_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     boost_text = (
-        f"{anim_emoji('rocket', '🚀')} <b>TELEGRAM PREMIUM & GURUHNI BOOST QILISH</b>\n\n"
-        f"{anim_emoji('gem', '💎')} <b>Detektiv Mafia loyihasini qo'llab-quvvatlang!</b>\n\n"
+        f"{tg_emoji('trigger', '🚀')} <b>TELEGRAM PREMIUM & GURUHNI BOOST QILISH</b>\n\n"
+        f"{tg_emoji('badge_special', '💎', 'USER_SETTINGS')} <b>Detektiv Mafia loyihasini qo'llab-quvvatlang!</b>\n\n"
         "Guruhimiz yoki botimizni Telegram Premium orqali <b>Boost</b> qilgan o'yinchilarga maxsus imtiyozlar beriladi:\n\n"
-        "✨ <b>Premium & Booster Imtiyozlari:</b>\n"
-        f"• {anim_emoji('crown', '👑')} <b>Eksklyuziv VIP Nishonlar:</b> Ismingiz yonida porlab turuvchi animatsiyali emojilar!\n"
-        f"• {anim_emoji('coin', '💰')} <b>2x Bonus:</b> O'yinlarda g'alaba uchun 2 barobar ko'proq Coin va Gold yutuqlari.\n"
-        f"• {anim_emoji('detective', '🎭')} <b>Yangi Rollarga Erta Kirish:</b> Sinovdagi yangi rollar birinchi sizga beriladi.\n"
-        f"• {anim_emoji('shield', '🛡️')} <b>Sindikat Imtiyozi:</b> Klan ochish va rivojlantirishda 50% chegirma.\n\n"
+        f"{tg_emoji('trigger', '✨')} <b>Premium & Booster Imtiyozlari:</b>\n"
+        f"• {tg_emoji('don', '👑')} <b>Eksklyuziv VIP Nishonlar:</b> Ismingiz yonida porlab turuvchi animatsiyali emojilar!\n"
+        f"• {tg_emoji('coin', '💰', 'SHOP')} <b>2x Bonus:</b> O'yinlarda g'alaba uchun 2 barobar ko'proq Coin va Gold yutuqlari.\n"
+        f"• {tg_emoji('detective', '🎭')} <b>Yangi Rollarga Erta Kirish:</b> Sinovdagi yangi rollar birinchi sizga beriladi.\n"
+        f"• {tg_emoji('item_shield', '🛡️', 'SHOP')} <b>Sindikat Imtiyozi:</b> Klan ochish va rivojlantirishda 50% chegirma.\n\n"
         "Guruhga boost berish uchun guruh profiliga kiring va <b>«Boost Group»</b> tugmasini bosing! 🔥✨"
     )
     adm = is_admin(user.id, getattr(user, "username", "")) if user else False
@@ -999,10 +999,18 @@ async def goal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         role = game.get("roles", {}).get(user.id)
         from roles.dossier import get_role_dossier
         dossier = get_role_dossier(role)
+        role_emoji = tg_emoji('don', '👑') if role == 'Boshliq' else (
+            tg_emoji('mafia', '🔪') if ROLES.get(role) == 'red' else (
+                tg_emoji('detective', '🕵️‍♂️') if role in ('Detektiv', 'Sherif') else (
+                    tg_emoji('doctor', '🩺') if role == 'Doktor' else dossier.icon
+                )
+            )
+        )
+        team_emoji = tg_emoji('mafia_win', '🔴') if ROLES.get(role) == 'red' else tg_emoji('civilian_win', '🔵')
         text = (
-            f"🎯 <b>SIZNING O'YIN MAQSADINGIZ</b>\n\n"
-            f"🎭 <b>Rolingiz:</b> {dossier.icon} <b>{dossier.role_name}</b>\n"
-            f"🏷️ <b>Jamoangiz:</b> <b>{dossier.team_display}</b>\n\n"
+            f"{tg_emoji('badge_target', '🎯', 'USER_SETTINGS')} <b>SIZNING O'YIN MAQSADINGIZ</b>\n\n"
+            f"🎭 <b>Rolingiz:</b> {role_emoji} <b>{dossier.role_name}</b>\n"
+            f"🏷️ <b>Jamoangiz:</b> {team_emoji} <b>{dossier.team_display}</b>\n\n"
             f"⚡ <b>Bosh Maqsad:</b>\n{dossier.goal}\n\n"
             f"💡 <i>Taktik maslahat:</i> {dossier.tactical_tip}"
         )
@@ -1010,9 +1018,9 @@ async def goal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = (
             f"{tg_emoji('badge_target', '🎯', 'USER_SETTINGS')} <b>DETEKTIV MAFIA — JAMOAVIY MAQSADLAR</b>\n\n"
             f"{tg_emoji('civilian_team', '🔵', 'GAMEPLAY')} <b>Shahar (Town) Maqsadi:</b>\n"
-            "Barcha Mafiya a'zolari va shafqatsiz qotillarni fosh qilish, tergov va sud orqali shaharni tozalash!\n\n"
+            f"Barcha {tg_emoji('mafia_team', '🔴')} Mafiya a'zolari va {tg_emoji('dead', '💀')} shafqatsiz qotillarni fosh qilish, {tg_emoji('detective', '🕵️‍♂️')} tergov va {tg_emoji('voting', '⚖️')} sud orqali shaharni tozalash!\n\n"
             f"{tg_emoji('mafia_team', '🔴', 'GAMEPLAY')} <b>Mafiya (Mafia) Maqsadi:</b>\n"
-            "Shahar aholisini tunda va sudda yo'q qilib, ko'pchilikni egallash va shahar ustidan nazorat o'rnatish!\n\n"
+            f"Shahar aholisini {tg_emoji('night', '🌙')} tunda va {tg_emoji('voting', '⚖️')} sudda yo'q qilib, ko'pchilikni egallash va shahar ustidan nazorat o'rnatish!\n\n"
             "🟡 <b>Yakkaxonlar (Solo) Maqsadi:</b>\n"
             "• <b>Joker:</b> Shaharni aldab o'zini dorda ostirish!\n"
             "• <b>Maniak:</b> Shahar va mafiyaning barchasini yo'q qilib, yolg'iz tirik qolish!\n"
@@ -1038,17 +1046,20 @@ async def teamwork_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         f"🤝 <b>DETEKTIV MAFIA — JAMOAVIY HAMKORLIK VA ITTIFOQLAR PREVIEW</b>\n\n"
         f"✨ <b>1. {tg_emoji('detective', '🕵️‍♂️')}{tg_emoji('sheriff', '👮‍♂️')} Detektiv va Sherif Hamkorligi:</b>\n"
-        "• Detektiv tirik ekan, shahar xavfsizligini ta'minlab, faol tergov olib boradi.\n"
-        "• Sherif esa Detektiv tirik paytda passiv turadi va uning o'rnini kutadi.\n"
-        "• <b>Detektiv halok bo'lgach:</b> Sherif darhol barcha detektivlik vakolatlariga ega bo'lib Detektivga aylanadi!\n\n"
+        f"• Detektiv tirik ekan, shahar xavfsizligini ta'minlab, faol tergov olib boradi.\n"
+        f"• Sherif esa Detektiv tirik paytda passiv turadi va uning o'rnini kutadi.\n"
+        f"• <b>Detektiv {tg_emoji('dead', '💀')} halok bo'lgach:</b> Sherif darhol barcha detektivlik vakolatlariga ega bo'lib Detektivga aylanadi!\n\n"
         f"✨ <b>2. {tg_emoji('mafia_team', '🔪')} Mafiya Sindikati:</b>\n"
         f"• {tg_emoji('don', '👑')} <b>Boshliq (Don)</b> tungi qotillik nishonini belgilaydi.\n"
-        "• <b>Qotil</b> va <b>Bo'ri</b> Boshliq bilan birga harakatlanadi. Agar Boshliq halok bo'lsa, mustaqil ovga chiqadi!\n"
-        "• <b>Soya</b> va <b>Soxtachi</b> tergovchilarni chalg'itib, soxta dalillar orqali mafiyani himoyalaydi.\n\n"
-        "✨ <b>3. Ijtimoiy Ittifoqlar (Social Bonds):</b>\n"
-        "• 💍 <code>/para</code> — Juftlik: do'stingiz bilan maxsus sevgi rishtasi.\n"
-        "• 🤝 <code>/bro</code> — Birodarlik: do'stingiz bilan ishonchli do'stlik rishtasi.\n"
-        "• Guruhda kimningdir xabariga 'Reply' qilib buyruqni yuboring va so'rov yuboriladi!"
+        f"• <b>Qotil</b> va <b>Bo'ri</b> Boshliq bilan birga harakatlanadi. Agar Boshliq {tg_emoji('dead', '💀')} halok bo'lsa, mustaqil ovga chiqadi!\n"
+        f"• <b>Soya</b> va <b>Soxtachi</b> tergovchilarni chalg'itib, soxta dalillar orqali mafiyani himoyalaydi.\n\n"
+        f"✨ <b>3. {tg_emoji('doctor', '🩺')}{tg_emoji('doctor_save', '💊')} Shifokor va Tansoqchi Himoyasi:</b>\n"
+        f"• Doktor har kecha bir fuqaroni {tg_emoji('doctor_save', '💊')} davolaydi yoki o'zini qutqaradi (har o'yinda 1 marta o'zini davolash).\n"
+        f"• Tansoqchi esa o'z jonini fido qilib bo'lsa ham nishonni qutqarib qoladi!\n\n"
+        f"✨ <b>4. Ijtimoiy Ittifoqlar (Social Bonds):</b>\n"
+        f"• 💍 <code>/para</code> — Juftlik: do'stingiz bilan maxsus sevgi rishtasi.\n"
+        f"• 🤝 <code>/bro</code> — Birodarlik: do'stingiz bilan ishonchli do'stlik rishtasi.\n"
+        f"• Guruhda kimningdir xabariga 'Reply' qilib buyruqni yuboring va so'rov yuboriladi!"
     )
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💍 Juftlik (/mypara)", callback_data="my_para_info"), InlineKeyboardButton("🤝 Birodar (/mybro)", callback_data="my_bro_info")],
