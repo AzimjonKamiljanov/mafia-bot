@@ -559,22 +559,22 @@ def test_custom_emojis_full_suite():
     }
     for key, doc_id in active_ids.items():
         tag = tg_emoji(key)
-        assert f'<tg-emoji document-id="{doc_id}">' in tag
+        assert f'<tg-emoji emoji-id="{doc_id}">' in tag
         assert tag.endswith("</tg-emoji>")
 
     # 2. render_custom_emoji category checks
     res_game = render_custom_emoji("GAMEPLAY", "doctor")
-    assert '<tg-emoji document-id="3191530815439765548">🩺</tg-emoji>' == res_game
+    assert '<tg-emoji emoji-id="3191530815439765548">🩺</tg-emoji>' == res_game
 
     res_shop = render_custom_emoji("SHOP", "coin")
-    assert '<tg-emoji document-id="5429462837318049280">🪙</tg-emoji>' == res_shop
+    assert '<tg-emoji emoji-id="1471004892762996745">🪙</tg-emoji>' == res_shop
 
     res_unknown = render_custom_emoji("UNKNOWN", "nonexistent", fallback="❓")
     assert res_unknown == "❓"
 
     # 3. Direct numeric ID rendering
     res_direct_id = tg_emoji("3191530815439765550", fallback="🎮")
-    assert res_direct_id == '<tg-emoji document-id="3191530815439765550">🎮</tg-emoji>'
+    assert res_direct_id == '<tg-emoji emoji-id="3191530815439765550">🎮</tg-emoji>'
 
     # 4. Unknown key fallback
     assert tg_emoji("random_unknown_key_xyz", fallback="⭐") == "⭐"
@@ -757,24 +757,24 @@ async def test_commands_custom_emoji_rich_output():
     # /plan
     await plan_cmd(up, ctx)
     plan_out = up.message.reply_text.call_args[0][0]
-    assert "<tg-emoji document-id=" in plan_out
+    assert "<tg-emoji emoji-id=" in plan_out
 
     # /boost
     up.message.reply_text.reset_mock()
     await boost_cmd(up, ctx)
     boost_out = up.message.reply_text.call_args[0][0]
-    assert "<tg-emoji document-id=" in boost_out
+    assert "<tg-emoji emoji-id=" in boost_out
 
     # /goal
     up.message.reply_text.reset_mock()
     await goal_cmd(up, ctx)
     goal_out = up.message.reply_text.call_args[0][0]
-    assert "<tg-emoji document-id=" in goal_out
+    assert "<tg-emoji emoji-id=" in goal_out
 
     # /teamwork
     up.message.reply_text.reset_mock()
     await teamwork_cmd(up, ctx)
     tw_out = up.message.reply_text.call_args[0][0]
-    assert "<tg-emoji document-id=" in tw_out
+    assert "<tg-emoji emoji-id=" in tw_out
 
 

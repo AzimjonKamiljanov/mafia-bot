@@ -346,12 +346,33 @@ from telegram.request import HTTPXRequest
 from telegram.ext import ExtBot
 
 class SafeExtBot(ExtBot):
-    """ExtBot subclass that strictly enforces parse_mode='HTML' for <tg-emoji> tags and gracefully retries on entity parsing failures."""
+    """ExtBot subclass that strictly enforces parse_mode='HTML' for <tg-emoji> tags, enriches emojis to animated custom emojis, and gracefully retries on entity parsing failures."""
     async def _do_post(self, endpoint, data=None, *args, **kwargs):
         if data and isinstance(data, dict):
             for k in ("text", "caption"):
-                if k in data and isinstance(data[k], str) and "<tg-emoji" in data[k]:
-                    data["parse_mode"] = "HTML"
+                if k in data and isinstance(data[k], str):
+                    # 1. Normalize legacy document-id to official emoji-id
+                    if "<tg-emoji" in data[k] and "document-id=" in data[k]:
+                        import re
+                        data[k] = re.sub(r'<tg-emoji\s+document-id="(\d+)"', r'<tg-emoji emoji-id="\1"', data[k])
+
+                    # 2. Strict parse_mode enforcement & universal emoji animation
+                    if "<tg-emoji" in data[k]:
+                        data["parse_mode"] = "HTML"
+                        from core.emojis import enrich_with_animated_emojis
+                        data[k] = enrich_with_animated_emojis(data[k])
+                    elif data.get("parse_mode") in ("HTML", "html"):
+                        from core.emojis import enrich_with_animated_emojis
+                        data[k] = enrich_with_animated_emojis(data[k])
+                    elif data.get("parse_mode") is None:
+                        import html
+                        from core.emojis import _CHAR_TO_KEY, enrich_with_animated_emojis
+                        if any(char in data[k] for char in _CHAR_TO_KEY):
+                            escaped = html.escape(data[k])
+                            enriched = enrich_with_animated_emojis(escaped)
+                            if enriched != escaped:
+                                data[k] = enriched
+                                data["parse_mode"] = "HTML"
         try:
             return await super()._do_post(endpoint, data, *args, **kwargs)
         except Exception as e:

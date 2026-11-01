@@ -10,6 +10,7 @@ from database.models import (
 )
 from database.db import get_db
 from core.engine import active_drops
+from core.emojis import tg_emoji
 
 log = logging.getLogger("detektiv.handlers.social")
 

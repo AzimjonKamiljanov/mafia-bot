@@ -215,13 +215,13 @@ async def finish_game(
             role_title = format_role_display(d_role)
             d_cause = causes.get(d_uid, ["vaxshiylarcha o'ldirildi"])[0]
             if "Mafiya" in d_cause or "Boshliq" in d_cause:
-                extra = " Aytishlaricha, unikiga 🤵🏻 Don kelgan."
+                extra = f" Aytishlaricha, unikiga {tg_emoji('don', '👑')} Don kelgan."
             elif "Maniak" in d_cause:
-                extra = " Aytishlaricha, unikiga 🩸 Maniak kelgan."
+                extra = f" Aytishlaricha, unikiga {tg_emoji('mafia_win', '🩸')} Maniak kelgan."
             elif "Pirotexnik" in d_cause:
-                extra = " Aytishlaricha, uning uyiga ⛽ o't qo'yilgan."
+                extra = f" Aytishlaricha, uning uyiga {tg_emoji('trigger', '🔥')} o't qo'yilgan."
             elif "Detektiv" in d_cause or "Sherif" in d_cause:
-                extra = " Qonun himoyachilarining adolat o'qi unga yetdi."
+                extra = f" {tg_emoji('detective', '⚖️')} Qonun himoyachilarining adolat o'qi unga yetdi."
             else:
                 extra = ""
             killed_lines.append(f"Tunda {role_title} {d_name}... {d_cause}.{extra}")
@@ -266,9 +266,9 @@ async def finish_game(
     elif winning_team == "blue":
         victory_header = f"{tg_emoji('civilian_win', '🏆')} <b>SHAHAR FUQAROLARI G'ALABA QOZONDI!</b>\n\n"
     elif joker:
-        victory_header = "🃏 <b>JOKER G'ALABA QOZONDI!</b>\n\n"
+        victory_header = f"{tg_emoji('mafia_win', '🃏')} <b>JOKER G'ALABA QOZONDI!</b>\n\n"
 
-    winners_emoji = tg_emoji('mafia_win', '🩸') if winning_team == "red" else (tg_emoji('civilian_win', '🏆') if winning_team == "blue" else "🃏")
+    winners_emoji = tg_emoji('mafia_win', '🩸') if winning_team == "red" else (tg_emoji('civilian_win', '🏆') if winning_team == "blue" else tg_emoji('mafia_win', '🃏'))
     lines = [
         f"{tg_emoji('dead', '💀')} <b>Tunda o'ldirilganlar:</b>",
         *killed_lines,

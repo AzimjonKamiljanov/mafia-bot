@@ -1,6 +1,6 @@
 """
 Visual effects and animated elements for Telegram Mafia Bot.
-Supports Telegram Custom Animated Emojis (HTML <tg-emoji document-id="..."> format),
+Supports Telegram Custom Animated Emojis (HTML <tg-emoji emoji-id="..."> format),
 animated stickers, and native animated 3D physics dice (🎯, 🎲, 🎰).
 """
 
@@ -16,11 +16,12 @@ from core.emojis import (
     anim_emoji,
     strip_anim_emoji_tags,
     format_badge_with_anim_emoji,
+    enrich_with_animated_emojis,
 )
 
 log = logging.getLogger("detektiv.visuals")
 
-# Telegram Animated / Custom Emojis (HTML tg-emoji tags with document-id)
+# Telegram Animated / Custom Emojis (HTML tg-emoji tags with emoji-id)
 TG_ANIMATED_EMOJIS = {
     # Named keys
     "moon": tg_emoji("night", "🌙"),

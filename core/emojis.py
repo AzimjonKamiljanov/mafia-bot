@@ -1,15 +1,33 @@
 """
-Centralized Telegram Premium Custom Emoji Manager for Detektiv Mafia Bot.
-Supports scalable emoji mapping with Telegram HTML <tg-emoji document-id="..."> fallback </tg-emoji> format.
+Centralized Telegram Premium Custom Animated Emoji Manager for Detektiv Mafia Bot.
+Strictly outputs Telegram HTML custom animated emojis formatted as:
+<tg-emoji emoji-id="ID_HERE">fallback_emoji</tg-emoji>
+All emojis map to the 11 verified active Telegram animated emoji IDs.
 """
 
 import re
 from typing import Dict, Any, Optional
 
+# Verified Active Custom Animated Emoji IDs
+ACTIVE_ANIMATED_EMOJI_IDS = {
+    "game_start": "3191530815439765550",      # 🎬 🎮 📢 Triggers, titles, announcements, game start
+    "mafia": "1269403972611866648",           # 🔪 🗡️ ⚔️ Mafia role, mafia team, knife, attack
+    "don": "919985748604617114",              # 👑 🎩 Don / Boss actions, crown, boss reveal, admin
+    "detective": "1740555807604342805",       # 🕵️‍♂️ 🔍 🔎 Detective / Commissar / Sheriff investigation, search, profile
+    "doctor": "3191530815439765548",          # 🩺 💉 💊 Doctor / Healer save / heal actions / medicine
+    "night": "4158409751421517834",           # 🌙 🌌 🌑 Night phase transition / night actions / moon / dark
+    "day": "336920350212227127",              # ☀️ 🌅 🗳️ Day phase / morning announcements / voting phase / sun / court
+    "dead": "3974262500324540463",            # 💀 ☠️ 🪦 Player eliminated / dead status / skull / graveyard
+    "civilian": "1471004892762996745",        # 👥 🏘️ 🏆 Civilian / Villager team / Civilian Victory / town / rewards / coins
+    "mafia_win": "1145788388561911824",       # 🩸 😈 Mafia Victory announcement / evil win
+    "timer": "3024877442880766280",           # ⏳ ⏱️ ⏰ Timer / countdown / remaining time warning / clock
+}
+
+DEFAULT_ANIMATED_EMOJI_ID = "3191530815439765550"
+
 # Scalable Centralized Configuration grouped by category
 EMOJI_CONFIG: Dict[str, Dict[str, Dict[str, str]]] = {
     "GAMEPLAY": {
-        # Core active emoji IDs provided by task
         "game_start": {"id": "3191530815439765550", "fallback": "🎬"},
         "trigger": {"id": "3191530815439765550", "fallback": "📢"},
         "announcement": {"id": "3191530815439765550", "fallback": "📢"},
@@ -45,34 +63,41 @@ EMOJI_CONFIG: Dict[str, Dict[str, Dict[str, str]]] = {
         "warning": {"id": "3024877442880766280", "fallback": "⏰"},
     },
     "SHOP": {
-        "coin": {"id": "5429462837318049280", "fallback": "🪙"},
-        "gold": {"id": "5429462837318049280", "fallback": "🥇"},
-        "gem": {"id": "5429462837318049280", "fallback": "💎"},
-        "cart": {"id": "5429462837318049280", "fallback": "🛒"},
-        "bag": {"id": "5463134628678688463", "fallback": "🎒"},
+        "coin": {"id": "1471004892762996745", "fallback": "🪙"},
+        "gold": {"id": "1471004892762996745", "fallback": "🥇"},
+        "gem": {"id": "1471004892762996745", "fallback": "💎"},
+        "cart": {"id": "3191530815439765550", "fallback": "🛒"},
+        "bag": {"id": "3191530815439765550", "fallback": "🎒"},
         "item_knife": {"id": "1269403972611866648", "fallback": "🔪"},
-        "item_shield": {"id": "5370845348392576392", "fallback": "🛡️"},
+        "item_shield": {"id": "3191530815439765550", "fallback": "🛡️"},
         "item_crown": {"id": "919985748604617114", "fallback": "👑"},
-        "item_doc": {"id": "5463134628678688463", "fallback": "📄"},
+        "item_doc": {"id": "1740555807604342805", "fallback": "📄"},
         "item_vote": {"id": "336920350212227127", "fallback": "🗳️"},
-        "item_rose": {"id": "5429462837318049280", "fallback": "🌹"},
-        "shop_header": {"id": "5429462837318049280", "fallback": "🛍️"},
+        "item_rose": {"id": "1471004892762996745", "fallback": "🌹"},
+        "shop_header": {"id": "1471004892762996745", "fallback": "🛍️"},
     },
     "USER_SETTINGS": {
         "profile": {"id": "1740555807604342805", "fallback": "👤"},
         "badge_admin": {"id": "919985748604617114", "fallback": "👑"},
-        "badge_special": {"id": "5429462837318049280", "fallback": "💎"},
-        "badge_lightning": {"id": "5370845348392576392", "fallback": "⚡"},
+        "badge_special": {"id": "1471004892762996745", "fallback": "💎"},
+        "badge_lightning": {"id": "3191530815439765550", "fallback": "⚡"},
         "badge_detective": {"id": "1740555807604342805", "fallback": "🕶️"},
-        "badge_target": {"id": "5463134628678688463", "fallback": "🎯"},
+        "badge_target": {"id": "3191530815439765550", "fallback": "🎯"},
         "stats_games": {"id": "3191530815439765550", "fallback": "🎮"},
         "stats_wins": {"id": "1471004892762996745", "fallback": "🏆"},
         "stats_losses": {"id": "3974262500324540463", "fallback": "❌"},
-        "balance_coins": {"id": "5429462837318049280", "fallback": "🪙"},
-        "balance_gold": {"id": "5429462837318049280", "fallback": "🥇"},
-        "settings_gear": {"id": "5463134628678688463", "fallback": "⚙️"},
+        "balance_coins": {"id": "1471004892762996745", "fallback": "🪙"},
+        "balance_gold": {"id": "1471004892762996745", "fallback": "🥇"},
+        "settings_gear": {"id": "3191530815439765550", "fallback": "⚙️"},
         "settings_time": {"id": "3024877442880766280", "fallback": "⏱️"},
         "settings_roles": {"id": "3191530815439765550", "fallback": "🎭"},
+    },
+    "SOCIAL": {
+        "para": {"id": "1471004892762996745", "fallback": "💍"},
+        "bro": {"id": "1471004892762996745", "fallback": "🤝"},
+        "clan": {"id": "1471004892762996745", "fallback": "🛡️"},
+        "gift": {"id": "1471004892762996745", "fallback": "🎁"},
+        "wave": {"id": "3191530815439765550", "fallback": "👋"},
     }
 }
 
@@ -88,6 +113,8 @@ _KEY_ALIASES: Dict[str, str] = {
     "sun": "day",
     "crown": "boss",
     "gem": "badge_special",
+    "coin": "coin",
+    "gold": "gold",
     "skull": "dead",
     "knife": "mafia",
     "swords": "item_knife",
@@ -103,67 +130,220 @@ _KEY_ALIASES: Dict[str, str] = {
     "rocket": "trigger",
     "lock": "item_shield",
     "sparkles": "trigger",
+    "boost": "trigger",
+    "plan": "game_start",
+    "goal": "badge_target",
+    "teamwork": "civilian_team",
+    "bag": "bag",
+    "cart": "cart",
+    "clock": "timer",
+    "hourglass": "timer",
+    "ring": "para",
+    "handshake": "bro",
 }
 for _alias, _target in _KEY_ALIASES.items():
     if _alias not in _FLAT_EMOJI_CACHE and _target in _FLAT_EMOJI_CACHE:
         _FLAT_EMOJI_CACHE[_alias] = _FLAT_EMOJI_CACHE[_target]
 
-# Character mappings for legacy compatibility
-_CHAR_TO_KEY = {
-    "🌙": "night",
-    "☀️": "day",
-    "🕵️": "detective",
-    "🕵️‍♂️": "detective",
-    "👑": "boss",
-    "💎": "gem",
-    "🏆": "stats_wins",
-    "🪙": "coin",
-    "🥇": "gold",
-    "⚔️": "item_knife",
-    "🔪": "mafia",
-    "⚖️": "voting",
-    "🛡️": "item_shield",
+# Comprehensive Unicode character mappings covering all symbols used across the bot
+_CHAR_TO_KEY: Dict[str, str] = {
+    # 3191530815439765550
+    "🎬": "game_start",
+    "🎮": "game_start",
+    "📢": "trigger",
+    "📣": "trigger",
     "🚀": "trigger",
     "🔥": "trigger",
-    "⚡": "badge_lightning",
-    "🎉": "civilian_win",
-    "📜": "item_doc",
-    "🔒": "item_shield",
-    "🎯": "badge_target",
-    "🌹": "item_rose",
-    "💀": "dead",
-    "☠️": "eliminated",
-    "🪦": "graveyard",
-    "🎖️": "badge_target",
-    "🕶️": "badge_detective",
-    "✦": "gem",
     "✨": "trigger",
-    "⏳": "timer",
-    "⏱️": "countdown",
-    "🗳️": "voting",
-    "🗳": "voting",
+    "🌟": "trigger",
+    "💡": "trigger",
+    "⚙️": "settings_gear",
+    "⚙": "settings_gear",
+    "🎭": "settings_roles",
+    "ℹ️": "trigger",
+    "ℹ": "trigger",
+    "📌": "trigger",
+    "🎯": "badge_target",
+    "🛡️": "item_shield",
+    "🛡": "item_shield",
+    "🔒": "item_shield",
+    "🎒": "bag",
+    "🛒": "cart",
+    "🛍️": "shop_header",
+    "🛍": "shop_header",
+    "⚡": "badge_lightning",
+    "🏷️": "trigger",
+    "🏷": "trigger",
+    "📖": "trigger",
+    "💬": "trigger",
+    "🏠": "trigger",
+    "📦": "trigger",
+    "🚪": "trigger",
+    "🤖": "trigger",
+    "📊": "trigger",
+    "➕": "trigger",
+    "⬅️": "trigger",
+    "↗️": "trigger",
+    "↗": "trigger",
+    "👇": "trigger",
+    "👋": "trigger",
+
+    # 1269403972611866648
+    "🔪": "mafia",
+    "🗡️": "item_knife",
+    "🗡": "item_knife",
+    "⚔️": "item_knife",
+    "⚔": "item_knife",
+    "🔫": "mafia",
+    "🥷": "mafia",
+    "🐺": "mafia",
+
+    # 919985748604617114
+    "👑": "boss",
+    "🎩": "don",
+    "🤵🏻": "don",
+    "🤵": "don",
+    "🤴": "don",
+    "🟡": "don",
+
+    # 1740555807604342805
+    "🕵️‍♂️": "detective",
+    "🕵️": "detective",
+    "🕵": "detective",
+    "👮‍♂️": "sheriff",
+    "👮": "sheriff",
+    "🔍": "investigation",
+    "🔎": "investigation",
+    "📜": "item_doc",
+    "📄": "item_doc",
+    "👤": "profile",
+    "🕶️": "badge_detective",
+    "🕶": "badge_detective",
+    "🚶": "detective",
+    "🎪": "detective",
+    "🔮": "detective",
+    "🕴️": "detective",
+    "🕴": "detective",
+    "💃": "detective",
+
+    # 3191530815439765548
     "🩺": "doctor",
     "💉": "heal",
     "💊": "doctor_save",
+    "🩹": "heal",
+    "🏥": "doctor",
+
+    # 4158409751421517834
+    "🌙": "night",
+    "🌌": "night_phase",
+    "🌑": "night",
+    "🌚": "night",
+    "😴": "night",
+    "💤": "night",
+    "🌫️": "night",
+    "🌫": "night",
+    "👻": "graveyard",
+
+    # 336920350212227127
+    "☀️": "day",
+    "🌅": "morning",
+    "🌄": "morning",
+    "🗳️": "voting",
+    "🗳": "voting",
+    "⚖️": "voting",
+    "⚖": "voting",
+    "🕊️": "day",
+    "🕊": "day",
+    "🏛️": "voting",
+    "🏛": "voting",
+    "🔨": "voting",
+
+    # 3974262500324540463
+    "💀": "dead",
+    "☠️": "eliminated",
+    "☠": "eliminated",
+    "🪦": "graveyard",
+    "⚰️": "graveyard",
+    "⚰": "graveyard",
+    "❌": "stats_losses",
+    "✖️": "stats_losses",
+    "🛑": "dead",
+    "⛔": "dead",
+
+    # 1471004892762996745
+    "👥": "civilian",
+    "🏘️": "civilian_team",
+    "🏘": "civilian_team",
+    "🏆": "stats_wins",
+    "🥇": "gold",
+    "🥈": "stats_wins",
+    "🥉": "stats_wins",
+    "🪙": "coin",
+    "💰": "coin",
+    "💎": "gem",
+    "✦": "gem",
+    "🌹": "item_rose",
+    "🎁": "gift",
+    "🎉": "civilian_win",
+    "🎊": "civilian_win",
+    "💍": "para",
+    "🤝": "bro",
+    "🔵": "civilian_team",
+    "🟢": "civilian_win",
+    "💵": "coin",
+    "💳": "coin",
+    "🎖️": "badge_target",
+    "🎖": "badge_target",
+
+    # 1145788388561911824
+    "🩸": "mafia_win",
+    "😈": "mafia_victory",
+    "👿": "mafia_victory",
+    "🔴": "mafia_win",
+    "🃏": "mafia_victory",
+
+    # 3024877442880766280
+    "⏳": "timer",
+    "⏱️": "countdown",
+    "⏱": "countdown",
+    "⏰": "warning",
+    "⌛": "timer",
+    "🕐": "timer",
+    "🕑": "timer",
+    "🕒": "timer",
+    "🕓": "timer",
+    "🕔": "timer",
 }
+
+# Precompile regex for known characters sorted longest first
+_KNOWN_KEYS_SORTED = sorted(_CHAR_TO_KEY.keys(), key=len, reverse=True)
+_KNOWN_PATTERN_STR = "|".join(re.escape(k) for k in _KNOWN_KEYS_SORTED)
+
+# General regex for any other astral / technical unicode emojis
+_GEN_PATTERN_STR = r"(?:(?:\u200d|\ufe0e|\ufe0f|[\U00010000-\U0010ffff]|[\u2600-\u27bf]|[\u2300-\u23ff]|[\u2b50-\u2b55]|[\u203c-\u2049]|[\u25aa-\u25fe]|[\u3030-\u303d]|[\u3297-\u3299])+)"
+
+_COMBINED_EMOJI_RE = re.compile(f"({_KNOWN_PATTERN_STR})|({_GEN_PATTERN_STR})")
+_HTML_TOKEN_RE = re.compile(r"(<tg-emoji[^>]*>.*?</tg-emoji>|<[^>]+>|[^<]+)", re.DOTALL)
+
 
 def render_custom_emoji(category: str, name: str, fallback: str = "") -> str:
     """
-    Render a custom emoji tag formatted as:
-    <tg-emoji document-id="ID_HERE">fallback_emoji</tg-emoji>
+    Render an official Telegram Bot API custom emoji tag formatted as:
+    <tg-emoji emoji-id="ID_HERE">fallback_emoji</tg-emoji>
     """
     cat_dict = EMOJI_CONFIG.get(category.upper(), {})
     item = cat_dict.get(name.lower())
     if item:
-        doc_id = item["id"]
+        emoji_id = item["id"]
         fb = fallback or item.get("fallback", "")
-        return f'<tg-emoji document-id="{doc_id}">{fb}</tg-emoji>'
+        return f'<tg-emoji emoji-id="{emoji_id}">{fb}</tg-emoji>'
     return fallback or name
+
 
 def tg_emoji(key: str, fallback: str = "", category: Optional[str] = None) -> str:
     """
-    Lookup and render a custom emoji tag using category or automatic resolution.
-    Strictly outputs <tg-emoji document-id="ID_HERE">fallback_emoji</tg-emoji>.
+    Lookup and render an official Telegram HTML custom animated emoji tag.
+    Strictly outputs <tg-emoji emoji-id="ID_HERE">fallback_emoji</tg-emoji>.
     """
     key_clean = key.strip()
 
@@ -172,13 +352,13 @@ def tg_emoji(key: str, fallback: str = "", category: Optional[str] = None) -> st
         if key_clean.lower() in cat_dict:
             item = cat_dict[key_clean.lower()]
             fb = fallback or item.get("fallback", "")
-            return f'<tg-emoji document-id="{item["id"]}">{fb}</tg-emoji>'
+            return f'<tg-emoji emoji-id="{item["id"]}">{fb}</tg-emoji>'
 
     # 1. Direct flat cache
     if key_clean.lower() in _FLAT_EMOJI_CACHE:
         item = _FLAT_EMOJI_CACHE[key_clean.lower()]
         fb = fallback or item.get("fallback", "")
-        return f'<tg-emoji document-id="{item["id"]}">{fb}</tg-emoji>'
+        return f'<tg-emoji emoji-id="{item["id"]}">{fb}</tg-emoji>'
 
     # 2. Check if key is a unicode emoji character
     if key_clean in _CHAR_TO_KEY:
@@ -186,18 +366,20 @@ def tg_emoji(key: str, fallback: str = "", category: Optional[str] = None) -> st
         if mapped_key in _FLAT_EMOJI_CACHE:
             item = _FLAT_EMOJI_CACHE[mapped_key]
             fb = fallback or key_clean
-            return f'<tg-emoji document-id="{item["id"]}">{fb}</tg-emoji>'
+            return f'<tg-emoji emoji-id="{item["id"]}">{fb}</tg-emoji>'
 
     # 3. Check if key is already an ID
     if key_clean.isdigit():
         fb = fallback or "✨"
-        return f'<tg-emoji document-id="{key_clean}">{fb}</tg-emoji>'
+        return f'<tg-emoji emoji-id="{key_clean}">{fb}</tg-emoji>'
 
     return fallback or key
+
 
 def anim_emoji(key: str, fallback: str = "") -> str:
     """Universal animated/custom emoji helper with fallback (backward compatible)."""
     return tg_emoji(key, fallback=fallback)
+
 
 def strip_anim_emoji_tags(text: str) -> str:
     """Strip <tg-emoji> tags leaving only fallback characters for plain/Markdown/safe HTML text."""
@@ -208,11 +390,48 @@ def strip_anim_emoji_tags(text: str) -> str:
     # Strip any dangling or self-closing tg-emoji tags
     return re.sub(r'</?tg-emoji[^>]*>', '', cleaned)
 
+
+def enrich_with_animated_emojis(text: str) -> str:
+    """
+    Universal enhancer: transforms raw unicode emojis in HTML text outside tags into
+    animated custom emoji tags <tg-emoji emoji-id="...">char</tg-emoji>.
+    Preserves existing <tg-emoji> tags and normalizes legacy document-id attributes.
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    # Normalize legacy document-id to official Bot API emoji-id
+    if "<tg-emoji" in text and "document-id=" in text:
+        text = re.sub(r'<tg-emoji\s+document-id="(\d+)"', r'<tg-emoji emoji-id="\1"', text)
+
+    def _replace_emojis(chunk: str) -> str:
+        def _match_repl(m):
+            matched = m.group(0)
+            if matched in _CHAR_TO_KEY:
+                mapped = _CHAR_TO_KEY[matched]
+                eid = _FLAT_EMOJI_CACHE.get(mapped, {}).get("id", DEFAULT_ANIMATED_EMOJI_ID)
+            else:
+                eid = DEFAULT_ANIMATED_EMOJI_ID
+            return f'<tg-emoji emoji-id="{eid}">{matched}</tg-emoji>'
+
+        return _COMBINED_EMOJI_RE.sub(_match_repl, chunk)
+
+    tokens = _HTML_TOKEN_RE.findall(text)
+    out = []
+    for token in tokens:
+        if token.startswith("<"):
+            out.append(token)
+        else:
+            out.append(_replace_emojis(token))
+
+    return "".join(out)
+
+
 def format_badge_with_anim_emoji(badge: str) -> str:
     """
     Format a player badge with animated custom emoji tags for HTML mode.
     Example:
-      '👑 Bosh Admin' -> '<tg-emoji document-id="919985748604617114">👑</tg-emoji> Bosh Admin'
+      '👑 Bosh Admin' -> '<tg-emoji emoji-id="919985748604617114">👑</tg-emoji> Bosh Admin'
     """
     if not badge or badge == "Yo'q":
         return badge or "Yo'q"

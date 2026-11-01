@@ -41,16 +41,16 @@ def lobby_text(lobby: Dict[str, Any]) -> str:
         from core.visuals import format_player_title_html
         for i, uid in enumerate(players, 1):
             name = format_player_title_html(lobby, uid)
-            lines.append(f"{i}. 👤 {name}")
+            lines.append(f"{i}. {tg_emoji('profile', '👤')} {name}")
     else:
         lines.append("<i>Hozircha hech kim ro'yxatdan o'tmadi.</i>")
 
     lines.extend([
         "",
         f"{tg_emoji('timer', '⏳')} Kamida <b>{MIN_PLAYERS}</b> kishi yig'ilgach start bering.",
-        "Qo'shilish uchun pastdagi <b>Qo'shilish</b> tugmasini bosing 👇",
+        f"Qo'shilish uchun pastdagi <b>Qo'shilish</b> tugmasini bosing {tg_emoji('trigger', '👇')}",
         "",
-        "ℹ️ <b>Buyruqlar:</b>",
+        f"{tg_emoji('trigger', 'ℹ️')} <b>Buyruqlar:</b>",
         "• /start (yoki /startgame) — O'yinni boshlash",
         "• /call — O'yinchilarni chaqirish",
         "• /chiqish — Lobbyni tark etish",

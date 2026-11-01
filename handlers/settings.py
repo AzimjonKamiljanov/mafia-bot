@@ -164,14 +164,14 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         f"{tg_emoji('settings_gear', '⚙️', 'USER_SETTINGS')} <b>O'YIN VA GURUH SOZLAMALARI</b>\n\n"
-        f"👥 Guruh: <b>{title}</b>\n\n"
+        f"{tg_emoji('civilian', '👥')} Guruh: <b>{title}</b>\n\n"
         f"{tg_emoji('timer', '⏱', 'USER_SETTINGS')} <b>Hozirgi vaqtlar:</b>\n"
         f"• {tg_emoji('night', '🌙')} Tun fazasi: <b>{night}s</b>\n"
         f"• {tg_emoji('day', '☀️')} Kun fazasi: <b>{day}s</b>\n"
         f"• {tg_emoji('voting', '🗳')} Ovoz berish: <b>{vote}s</b>\n"
         f"• {tg_emoji('voting', '⚖️')} Sud (Hukm): <b>{verdict}s</b>\n\n"
         f"• {tg_emoji('settings_roles', '🎭', 'USER_SETTINGS')} <b>O'chirilgan rollar:</b> {dis_text}\n\n"
-        "O'zgartirish uchun quyidagi tugmalardan birini tanlang 👇"
+        f"O'zgartirish uchun quyidagi tugmalardan birini tanlang {tg_emoji('trigger', '👇')}"
     )
 
     await msg.reply_text(

@@ -7,7 +7,7 @@ from database.models import (
     ensure_user, get_user, change_balance, get_inventory, add_item,
     get_badge, set_badge, deactivate_badge, get_owned_badges, save_owned_badge, is_admin
 )
-from core.emojis import tg_emoji
+from core.emojis import tg_emoji, format_badge_with_anim_emoji
 
 log = logging.getLogger("detektiv.handlers.shop")
 
@@ -178,9 +178,9 @@ async def render_shop_inventory(q, uid: int):
     lines = [
         f"{tg_emoji('bag', '📦', 'SHOP')} <b>Mening Buyumlarim va Belgilarim</b>",
         "",
-        f"🏷️ Faol belgi: <b>{active_badge}</b>",
+        f"{tg_emoji('badge_target', '🏷️', 'USER_SETTINGS')} Faol belgi: <b>{format_badge_with_anim_emoji(active_badge) if active_badge and active_badge != 'Yo\'q' else 'Yo\'q'}</b>",
         "",
-        "🎒 <b>Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):</b>",
+        f"{tg_emoji('bag', '🎒', 'SHOP')} <b>Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):</b>",
         f"• {tg_emoji('item_knife', '🔪', 'SHOP')} Qasos pichog'i: <b>{knife}</b>",
         f"• {tg_emoji('item_doc', '📄', 'SHOP')} Soxta hujjat: <b>{fake_doc}</b>",
         f"• {tg_emoji('item_crown', '👑', 'SHOP')} Hukmdan himoya: <b>{ruler_prot}</b>",
