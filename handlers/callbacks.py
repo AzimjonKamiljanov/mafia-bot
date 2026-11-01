@@ -249,6 +249,47 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await shop_callback_handler(update, context)
         return
 
+    # 1.1. In-game item activation callback (use_item:<item_id>:<chat_id>)
+    if data.startswith("use_item:"):
+        parts = data.split(":")
+        item_id = parts[1]
+        chat_id = int(parts[2])
+        game = games.get(chat_id)
+        if not game:
+            await q.answer("❌ Faol o'yin topilmadi.", show_alert=True)
+            return
+        if not game.get("alive", {}).get(uid, False):
+            await q.answer("💀 Halok bo'lganlar buyum ishlata olmaydi.", show_alert=True)
+            return
+
+        from core.items import has_used_item, consume_game_item, ALREADY_USED_MSG
+        if has_used_item(game, uid, item_id):
+            await q.answer(ALREADY_USED_MSG, show_alert=True)
+            return
+
+        if item_id == "extra_vote":
+            if game.get("phase") != "voting":
+                await q.answer("❌ Qo'shimcha ovozni faqat ovoz berish paytida ishlatish mumkin!", show_alert=True)
+                return
+            success, msg = await consume_game_item(game, uid, "extra_vote")
+            if not success:
+                await q.answer(msg, show_alert=True)
+                return
+            game.setdefault("extra_votes", set()).add(uid)
+            await q.answer("🗳️ Qo'shimcha ovoz faollashtirildi! Sizning ovozingiz 2 barobar hisoblanadi (O'yinda 1 marta).", show_alert=True)
+            try:
+                await q.message.reply_text(
+                    "🗳️ <b>Qo'shimcha ovoz faollashtirildi!</b>\nUshbu ovoz berishda sizning ovozingiz 2 barobar hisoblanadi.\n⚠️ <i>Eslatma: Har bir o'yinda faqat 1 marta ishlatish mumkin.</i>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            return
+
+        success, msg = await consume_game_item(game, uid, item_id)
+        await q.answer(msg, show_alert=True)
+        return
+
     # 2. Main Menu Navigation
     if data in ("guide_roles", "menu_guide"):
         await q.answer()
@@ -633,7 +674,22 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await q.answer("❌ Detektiv tirik bo'lgan paytda Sherif qobiliyati faol emas!", show_alert=True)
                 return
             from config import ROLES
+            from core.items import has_used_item, mark_item_used
             is_red = (ROLES.get(game["roles"].get(target)) == "red")
+            if is_red and not has_used_item(game, target, "fake_document"):
+                from database.models import take_item
+                if await take_item(target, "fake_document", 1):
+                    mark_item_used(game, target, "fake_document")
+                    is_red = False
+                    try:
+                        await context.bot.send_message(
+                            chat_id=target,
+                            text="📄 *SOXTA HUJJAT ISHLADI!* Sherif sizni tekshirdi, ammo soxta hujjatingiz tufayli sizni oddiy fuqaro deb bildi (1 ta hujjat sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                            reply_markup=return_to_group_keyboard(game),
+                            parse_mode="Markdown"
+                        )
+                    except Exception:
+                        pass
             team_str = "🔴 QIZIL JAMOA (MAFIA)" if is_red else "🔵 QIZIL EMAS (TINCH FUQARO)"
             await q.message.reply_text(
                 f"👮 *SHERIF TEKSHIRUVI:*\n\n👤 {tgt_name} — {team_str}",

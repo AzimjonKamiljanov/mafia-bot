@@ -110,17 +110,19 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         ruler_prot = inv.get("ruler_protection", 0)
         prot = inv.get("protection", 0)
         rose = inv.get("rose", 0)
+        extra_vote = inv.get("extra_vote", 0)
 
         lines = [
             "📦 *Mening Buyumlarim va Belgilarim*",
             "",
             f"🏷️ Faol belgi: *{active_badge}*",
             "",
-            "🎒 Buyumlar:",
+            "🎒 Buyumlar (O'yinda faqat 1 marta ishlatish mumkin):",
             f"• 🔪 Qasos pichog'i: *{knife}*",
             f"• 📄 Soxta hujjat: *{fake_doc}*",
             f"• 👑 Hukmdan himoya: *{ruler_prot}*",
             f"• 🛡️ Tungi himoya: *{prot}*",
+            f"• 🗳️ Qo'shimcha ovoz: *{extra_vote}*",
             f"• 🌹 Gul: *{rose}*"
         ]
 
@@ -154,7 +156,8 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 "fake_document": "fake_document",
                 "ruler_protection": "ruler_protection",
                 "coin_protect": "protection",
-                "rose": "rose"
+                "rose": "rose",
+                "extra_vote": "extra_vote"
             }
             field = field_map.get(key, "protection")
             if not await change_balance(uid, "coin", -price, f"Shop: {name}"):

@@ -1055,4 +1055,35 @@ async def teamwork_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await msg.reply_text(text, reply_markup=kb, parse_mode="HTML")
 
+async def use_item_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message or update.effective_message
+    user = update.effective_user
+    if not msg or not user:
+        return
+    await ensure_user(user)
+
+    from core.engine import find_game_by_user
+    game = find_game_by_user(user.id)
+    if not game:
+        await msg.reply_text("ℹ️ Buyumlarni faqat faol o'yin davomida ishlatish mumkin.")
+        return
+
+    args = context.args or []
+    if not args:
+        await msg.reply_text(
+            "🎒 <b>O'yinda buyum ishlatish:</b>\n"
+            "Foydalanish: <code>/use extra_vote</code> yoki <code>/use shield</code>\n\n"
+            "⚠️ <i>Har bir buyumdan bitta o'yinda faqat 1 marta foydalanish mumkin!</i>",
+            parse_mode="HTML"
+        )
+        return
+
+    item_id = args[0].lower().strip()
+    from core.items import consume_game_item
+    success, reply = await consume_game_item(game, user.id, item_id)
+    if success and item_id in ("extra_vote", "extra_votes", "qoshimcha_ovoz"):
+        game.setdefault("extra_votes", set()).add(user.id)
+    await msg.reply_text(reply, parse_mode="HTML")
+
+
 

@@ -365,6 +365,8 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         "mayor_revealed": set(),
         "detective_results": {},
         "votes": {},
+        "extra_votes": set(),
+        "used_items": {},
         "weather": None,
         "_finish_started": False,
         "_waiting_king": False,

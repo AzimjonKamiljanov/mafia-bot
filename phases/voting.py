@@ -40,6 +40,9 @@ def get_voting_keyboard(game: Dict[str, Any], is_pm: bool = False) -> InlineKeyb
         ])
     if is_pm:
         rows.append([
+            InlineKeyboardButton("🗳️ Qo'shimcha ovoz ishlatish", callback_data=f"use_item:extra_vote:{chat_id}")
+        ])
+        rows.append([
             return_to_group_button(game)
         ])
     else:
@@ -92,12 +95,15 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
     votes: Dict[int, Any] = game.get("votes", {})
     tally: Dict[Any, int] = {}
 
-    # Weight votes (Mayor counts 3 votes if revealed)
+    # Weight votes (Mayor counts 3 votes if revealed, Extra Vote adds +1)
     mayor_revealed = game.get("mayor_revealed", set())
+    extra_votes = game.get("extra_votes", set())
     for voter_uid, target in votes.items():
         if not game["alive"].get(voter_uid, False):
             continue
         weight = 3 if voter_uid in mayor_revealed else 1
+        if voter_uid in extra_votes:
+            weight += 1
         tally[target] = tally.get(target, 0) + weight
 
     # Check results

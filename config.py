@@ -115,6 +115,7 @@ COIN_SHOP = {
     "ruler_protection": ("👑 Hukmdan himoya", 200),
     "coin_protect": ("🛡️ Himoya", 100),
     "rose": ("🌹 Gul", 200),
+    "extra_vote": ("🗳️ Qo'shimcha ovoz", 150),
 }
 
 GOLD_SHOP = {

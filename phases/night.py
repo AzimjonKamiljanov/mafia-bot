@@ -666,20 +666,57 @@ async def complete_night_resolution(
     if attacks is None:
         attacks = []
 
-    # 4. SHOP PROTECTION (Inventory item)
+    # 4. SHOP PROTECTION (Inventory item - Strictly 1 use per game per player)
+    from core.items import has_used_item, mark_item_used
     for uid in list(deaths):
-        if await take_item(uid, "protection", 1):
-            deaths.discard(uid)
-            crime_clues.pop(uid, None)
+        if has_used_item(game, uid, "protection"):
             try:
                 await context.bot.send_message(
                     chat_id=uid,
-                    text="🛡️ *SHOP HIMOYASI ISHLADI!* Sizga qilingan tungi hujum qaytarildi (1 ta himoya sarflandi).",
+                    text="⚠️ Siz ushbu o'yinda bu buyumdan (Tungi himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
             except Exception:
                 pass
+            continue
+
+        if await take_item(uid, "protection", 1):
+            mark_item_used(game, uid, "protection")
+            deaths.discard(uid)
+            crime_clues.pop(uid, None)
+            try:
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text="🛡️ *SHOP HIMOYASI ISHLADI!* Sizga qilingan tungi hujum qaytarildi (1 ta himoya sarflandi).\n⚠️ *Eslatma:* Ushbu buyumdan har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    reply_markup=return_to_group_keyboard(game),
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+
+    # 4.1. SHOP REVENGE KNIFE (Inventory item - Strictly 1 use per game per player)
+    for victim_uid in list(deaths):
+        if not has_used_item(game, victim_uid, "revenge_knife"):
+            victim_attackers = [
+                atk["attacker"] for atk in attacks
+                if atk.get("target") == victim_uid and atk.get("attacker") != victim_uid and game["alive"].get(atk.get("attacker"), False)
+            ]
+            if victim_attackers:
+                target_attacker = victim_attackers[0]
+                if await take_item(victim_uid, "revenge_knife", 1):
+                    mark_item_used(game, victim_uid, "revenge_knife")
+                    deaths.add(target_attacker)
+                    death_causes.setdefault(target_attacker, []).append("Qurbonning qasos pichog'i zarbasi tufayli halok bo'ldi")
+                    try:
+                        await context.bot.send_message(
+                            chat_id=victim_uid,
+                            text="🔪 *QASOS PICHOG'I ISHLADI!* Siz o'limingiz oldidan hujumchi ustidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                            reply_markup=return_to_group_keyboard(game),
+                            parse_mode="Markdown"
+                        )
+                    except Exception:
+                        pass
 
     # 5. WITNESS (Sayyoh / Tourist)
     for tourist_uid, visited_uid in game.get("tourist_targets", {}).items():
@@ -740,6 +777,22 @@ async def complete_night_resolution(
         # Shadow (Soya) deception
         if tgt in game.get("shadow_targets", {}).values():
             real_role = "Fuqaro" if ROLES.get(real_role) == "red" else "Qotil"
+
+        # Shop Item: Fake Document (Soxta hujjat - Strictly 1 use per game)
+        from core.items import has_used_item, mark_item_used
+        if not has_used_item(game, tgt, "fake_document") and ROLES.get(real_role) == "red":
+            if await take_item(tgt, "fake_document", 1):
+                mark_item_used(game, tgt, "fake_document")
+                real_role = "Fuqaro"
+                try:
+                    await context.bot.send_message(
+                        chat_id=tgt,
+                        text="📄 *SOXTA HUJJAT ISHLADI!* Detektiv sizni tekshirdi, ammo soxta hujjatingiz tufayli sizni 'Fuqaro' deb bildi (1 ta hujjat sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                        reply_markup=return_to_group_keyboard(game),
+                        parse_mode="Markdown"
+                    )
+                except Exception:
+                    pass
 
         try:
             await context.bot.send_message(

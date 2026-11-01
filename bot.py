@@ -17,7 +17,7 @@ from handlers import (
     para_cmd, dpara_cmd, mypara_cmd, bro_cmd, dbro_cmd, mybro_cmd,
     givegul_cmd, send_cmd, coin_cmd, gold_cmd, givecoin_cmd, givegold_cmd,
     call_players_cmd, callback_router, plan_cmd, boost_cmd, settings_cmd, admin_cmd, stats_cmd,
-    goal_cmd, teamwork_cmd
+    goal_cmd, teamwork_cmd, use_item_cmd
 )
 from phases.lobby import create_lobby
 
@@ -252,6 +252,10 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
         await reveal_cmd(update, context)
         return
 
+    if cmd_token in ("use", "ishlat"):
+        await use_item_cmd(update, context)
+        return
+
     # 4. Check if admin sent AI natural language configuration command
     from database.models import is_admin
     adm = is_admin(uid, getattr(update.effective_user, "username", ""))
@@ -421,6 +425,7 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler(["send", "drop", "golddrop"], send_cmd))
     app.add_handler(CommandHandler(["coin", "givecoin", "sendcoin"], coin_cmd))
     app.add_handler(CommandHandler(["gold", "givegold", "sendgold"], gold_cmd))
+    app.add_handler(CommandHandler(["use", "ishlat"], use_item_cmd))
 
     # All callback queries
     app.add_handler(CallbackQueryHandler(callback_router))

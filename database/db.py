@@ -61,6 +61,7 @@ async def init_db():
         rose INTEGER NOT NULL DEFAULT 0,
         fake_document INTEGER NOT NULL DEFAULT 0,
         ruler_protection INTEGER NOT NULL DEFAULT 0,
+        extra_vote INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
     );
 
@@ -215,6 +216,7 @@ async def init_db():
         ("rose", "INTEGER NOT NULL DEFAULT 0"),
         ("fake_document", "INTEGER NOT NULL DEFAULT 0"),
         ("ruler_protection", "INTEGER NOT NULL DEFAULT 0"),
+        ("extra_vote", "INTEGER NOT NULL DEFAULT 0"),
     ]:
         try:
             await db.execute(f"ALTER TABLE inventory ADD COLUMN {col} {col_def}")

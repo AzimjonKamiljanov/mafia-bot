@@ -136,10 +136,31 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
             await start_night(context, game)
             return
 
-        # 2. SHOP ITEM RULER PROTECTION CHECK
-        if await take_item(accused_uid, "ruler_protection", 1):
+        # 2. SHOP ITEM RULER PROTECTION CHECK (Strictly 1 use per game per player)
+        from core.items import has_used_item, mark_item_used, ALREADY_USED_MSG
+        if has_used_item(game, accused_uid, "ruler_protection"):
+            try:
+                await context.bot.send_message(
+                    chat_id=accused_uid,
+                    text="⚠️ Siz ushbu o'yinda bu buyumdan (Qatldan himoya) allaqachon foydalangansiz! Har bir o'yinda faqat 1 marta ishlatish mumkin.",
+                    reply_markup=verdict_res_kb,
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+        elif await take_item(accused_uid, "ruler_protection", 1):
+            mark_item_used(game, accused_uid, "ruler_protection")
             lines.append("\n👑 *HUKMDAN HIMOYA ISHLADI!*")
-            lines.append(f"*{accused_name}* maxsus do'kon himoyasini ishlatdi va qatldan qutuldi.")
+            lines.append(f"*{accused_name}* maxsus do'kon himoyasini ishlatdi va qatldan qutuldi (Har bir o'yinda faqat 1 marta ishlatish mumkin).")
+            try:
+                await context.bot.send_message(
+                    chat_id=accused_uid,
+                    text="👑 *QATLDAN HIMOYA ISHLADI!* Siz maxsus do'kon himoyasini ishlatib qatldan omon qoldingiz (1 ta buyum sarflandi).\n⚠️ *Eslatma:* Ushbu buyumdan har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    reply_markup=verdict_res_kb,
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
             try:
                 await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="Markdown")
             except Exception:
@@ -174,6 +195,14 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
             elif kill_votes:
                 qasoskor_victim = random.choice(kill_votes)
 
+        # 5.1. SHOP ITEM REVENGE KNIFE CHECK (Strictly 1 use per game)
+        knife_victim = None
+        if not qasoskor_victim and kill_votes:
+            if not has_used_item(game, accused_uid, "revenge_knife"):
+                if await take_item(accused_uid, "revenge_knife", 1):
+                    mark_item_used(game, accused_uid, "revenge_knife")
+                    knife_victim = random.choice(kill_votes)
+
         # Execute accused
         game["alive"][accused_uid] = False
         verdict_story = generate_verdict_story(accused_name, accused_role)
@@ -195,8 +224,23 @@ async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, An
             qv_name = display_name(game, qasoskor_victim)
             lines.append(f"\n⚔️ *QASOSKORNING SO'NGGI ZARBASI!*\n*{accused_name}* o'zi bilan birga *{qv_name}*ni ham narigi dunyoga tortib ketdi!")
 
+        # Deliver Revenge Knife strike if triggered
+        if knife_victim and game["alive"].get(knife_victim, False):
+            game["alive"][knife_victim] = False
+            rkv_name = display_name(game, knife_victim)
+            lines.append(f"\n🔪 *QASOS PICHOG'I ISHLADI!*\n*{accused_name}* o'limi oldidan yashirin qasos pichog'ini ishlatib, qatl tarafdori *{rkv_name}*ni o'ldirdi (Har bir o'yinda faqat 1 marta ishlatish mumkin)!")
+            try:
+                await context.bot.send_message(
+                    chat_id=accused_uid,
+                    text="🔪 *QASOS PICHOG'I ISHLADI!* Siz o'limingiz oldidan qasos oldingiz (1 ta pichoq sarflandi).\n⚠️ *Eslatma:* Har bir o'yinda faqat 1 marta foydalanish mumkin.",
+                    reply_markup=verdict_res_kb,
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+
         # Check promotions if Detective or Boss died
-        day_deaths = [u for u in [accused_uid, kamikadze_victim, qasoskor_victim] if u and not game["alive"].get(u, True)]
+        day_deaths = [u for u in [accused_uid, kamikadze_victim, qasoskor_victim, knife_victim] if u and not game["alive"].get(u, True)]
         for d_uid in day_deaths:
             if game["roles"].get(d_uid) == "Detektiv":
                 for p_uid, p_role in game.get("roles", {}).items():
