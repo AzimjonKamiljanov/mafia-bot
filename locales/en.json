@@ -1,0 +1,20 @@
+{
+  "bot_title": "Detective Mafia Bot",
+  "welcome_private": "Hello, {name}! 🕵️‍♂️\n\nI am the **Detective Mafia** bot. Uncover secrets with the townspeople, find criminals, and win!",
+  "lobby_created": "🎮 **A new game lobby has opened!**\n\nPress the button below to join the game.",
+  "game_started": "🚀 **The game has started!** Roles have been distributed to all players.",
+  "night_started": "🌙 **Night falls upon the town...** Use your abilities.",
+  "day_started": "☀️ **A new day begins!** The townspeople have awakened.",
+  "voting_started": "🗳️ **Voting phase has begun!** Nominate a suspect to take the stand.",
+  "verdict_started": "⚖️ **Court verdict!** Decide the fate of the accused.",
+  "role_fuqaro": "Civilian",
+  "role_detektiv": "Detective",
+  "role_boshliq": "Mafia Boss",
+  "role_qotil": "Killer",
+  "role_doktor": "Doctor",
+  "role_sherif": "Sheriff",
+  "role_tansoqchi": "Bodyguard",
+  "role_joker": "Joker",
+  "role_maniak": "Maniac",
+  "role_pirotexnik": "Arsonist"
+}

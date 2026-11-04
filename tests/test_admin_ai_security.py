@@ -167,3 +167,56 @@ async def test_item_grant_cancellation_flow():
     # Inventory must remain empty
     inv = await get_inventory(target_uid)
     assert inv.get("revenge_knife", 0) == 0
+
+@pytest.mark.asyncio
+async def test_badge_grant_confirmation_flow_and_audit():
+    await init_db()
+    target_uid = 9988776655
+    await ensure_user(MockUser(target_uid, "BadgeUser"))
+    db = await get_db()
+
+    mock_update = MagicMock()
+    mock_update.effective_chat.type = "private"
+    mock_update.effective_user.id = 7651553630
+    mock_update.effective_user.username = "rasuljonovv_a"
+    mock_update.effective_message.reply_text = AsyncMock()
+    mock_context = MagicMock()
+
+    pending_admin_grants.clear()
+
+    mock_update.effective_message.text = f"{target_uid} ga qirol toji nishon ber"
+    await process_admin_ai_message(mock_update, mock_context)
+
+    assert len(pending_admin_grants) == 1
+    token = list(pending_admin_grants.keys())[0]
+    grant = pending_admin_grants[token]
+    assert grant["kind"] == "badge"
+    assert grant["badge_key"] == "badge_crown"
+    assert grant["target_id"] == target_uid
+
+    # Confirm grant
+    cb_update = MagicMock()
+    cb_update.effective_chat.type = "private"
+    cb_update.callback_query.data = f"adm_grant_confirm:{token}"
+    cb_update.callback_query.from_user.id = 7651553630
+    cb_update.callback_query.from_user.username = "rasuljonovv_a"
+    cb_update.callback_query.answer = AsyncMock()
+    cb_update.callback_query.edit_message_text = AsyncMock()
+
+    await callback_router(cb_update, mock_context)
+    assert token not in pending_admin_grants
+
+    from database.models import get_badge
+    assigned_badge = await get_badge(target_uid)
+    assert assigned_badge == "👑 Qirol Toji"
+
+    # Verify audit transaction
+    async with db.execute(
+        "SELECT kind, currency, note FROM transactions WHERE user_id = ? AND kind = 'admin_grant'",
+        (target_uid,)
+    ) as cursor:
+        row = await cursor.fetchone()
+        assert row is not None
+        assert row[0] == "admin_grant"
+        assert row[1] == "badge:badge_crown"
+        assert "Super Admin 7651553630" in row[2]

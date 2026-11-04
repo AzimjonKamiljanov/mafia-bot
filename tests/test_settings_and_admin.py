@@ -61,8 +61,16 @@ async def test_settings_callback_handling():
     st = await get_chat_settings(chat_id)
     assert "Sayyoh" in json.loads(st["disabled_roles"])
 
-    # 3. Test reset
+    # 3. Test reset (2-step confirmation)
     mock_update.callback_query.data = f"sett:reset:{chat_id}"
+    handled = await handle_settings_callback(mock_update, mock_context)
+    assert handled is True
+    # Still unreset before confirmation
+    st = await get_chat_settings(chat_id)
+    assert st["night_seconds"] == 45
+
+    # 4. Confirm reset
+    mock_update.callback_query.data = f"sett:reset_confirm:{chat_id}"
     handled = await handle_settings_callback(mock_update, mock_context)
     assert handled is True
     st = await get_chat_settings(chat_id)

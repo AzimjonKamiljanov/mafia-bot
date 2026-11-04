@@ -315,6 +315,22 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
         return True
 
     if action == "reset":
+        await q.answer()
+        confirm_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ Ha, barchasini tiklash", callback_data=f"sett:reset_confirm:{chat_id}"),
+                InlineKeyboardButton("❌ Bekor qilish", callback_data=f"sett:menu:{chat_id}")
+            ]
+        ])
+        confirm_text = (
+            "⚠️ <b>SOZLAMALARNI ASLIGA QAYTARISH (RESET)</b>\n\n"
+            "Haqiqatan ham barcha guruh sozlamalarini (vaqtlar va faol rollarni) "
+            "standart holatga qaytarmoqchimisiz?"
+        )
+        await q.edit_message_text(confirm_text, reply_markup=confirm_kb, parse_mode="HTML")
+        return True
+
+    if action == "reset_confirm":
         await update_chat_settings(
             chat_id,
             night_seconds=DEFAULT_NIGHT_SECONDS,

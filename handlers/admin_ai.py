@@ -428,18 +428,35 @@ async def process_admin_ai_message(update: Update, context: ContextTypes.DEFAULT
         else:
             badge_key, badge_name = "badge_special", "✦ Maxsus belgi"
 
-        uid_match = re.search(r'(\d{7,12})', text)
+        uid_match = re.search(r'(\d{7,15})', text)
         tgt_uid = int(uid_match.group(1)) if uid_match else user.id
 
-        await set_badge(tgt_uid, badge_key, badge_name, days=365)
+        token = uuid.uuid4().hex[:12]
+        pending_admin_grants[token] = {
+            "admin_id": user.id,
+            "target_id": tgt_uid,
+            "kind": "badge",
+            "badge_key": badge_key,
+            "badge_name": badge_name,
+            "days": 365,
+            "created_at": time.time(),
+        }
+
+        confirm_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"adm_grant_confirm:{token}"),
+                InlineKeyboardButton("❌ Bekor qilish", callback_data=f"adm_grant_cancel:{token}")
+            ]
+        ])
         resp = (
-            "👑 <b>AI MASTER: NISHON TOPSHIRILDI</b>\n\n"
+            "👑 <b>AI MASTER: TASDIQLASH SO'ROVI</b>\n\n"
             f"👤 <b>Foydalanuvchi:</b> <code>{tgt_uid}</code>\n"
             f"🎖️ <b>Nishon:</b> {badge_name}\n"
             "⏳ <b>Amal qilish muddati:</b> 365 kun (1 yil)\n\n"
-            "<blockquote>Foydalanuvchining ismiga maxsus VIP nishon biriktirildi! 👑✨</blockquote>"
+            "<blockquote>Haqiqatan ham ushbu VIP nishonni topshirishni tasdiqlaysizmi? "
+            "Amalni yakunlash uchun quyidagi tugmani bosing. 👑✨</blockquote>"
         )
-        await msg.reply_text(resp, parse_mode="HTML")
+        await msg.reply_text(resp, reply_markup=confirm_kb, parse_mode="HTML")
         return True
 
     # 7. Direct Dynamic Config Key/Value Intent (set <key> <val> / get <key> / config)
