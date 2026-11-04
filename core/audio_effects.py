@@ -16,6 +16,10 @@ SOUND_ICONS = {
     "execution": "",
 }
 
+# Cached Telegram file IDs for static image assets (Feature 28)
+_CACHED_PHOTO_FILE_IDS: dict = {}
+
+
 async def _safe_send_message(
     bot: Bot,
     chat_id: int,
@@ -101,45 +105,62 @@ async def send_atmospheric_message(
 
     if photo_path and os.path.exists(photo_path):
         try:
-            with open(photo_path, "rb") as photo:
+            cached_file_id = _CACHED_PHOTO_FILE_IDS.get(photo_path)
+            photo_payload = cached_file_id if cached_file_id else None
+            photo_file = None
+            if not photo_payload:
+                photo_file = open(photo_path, "rb")
+                photo_payload = photo_file
+
+            try:
                 if len(full_text) <= 1024:
                     try:
-                        await bot.send_photo(
+                        msg = await bot.send_photo(
                             chat_id=chat_id,
-                            photo=photo,
+                            photo=photo_payload,
                             caption=full_text,
                             reply_markup=reply_markup,
                             parse_mode=parse_mode
                         )
+                        if msg and hasattr(msg, "photo") and msg.photo:
+                            _CACHED_PHOTO_FILE_IDS[photo_path] = msg.photo[-1].file_id
                         return
                     except Exception as pe:
                         log.warning("send_photo with parse_mode failed (%s), retrying without parse_mode", pe)
-                        photo.seek(0)
-                        await bot.send_photo(
+                        if photo_file:
+                            photo_file.seek(0)
+                        msg = await bot.send_photo(
                             chat_id=chat_id,
-                            photo=photo,
+                            photo=photo_payload,
                             caption=full_text,
                             reply_markup=reply_markup,
                             parse_mode=None
                         )
+                        if msg and hasattr(msg, "photo") and msg.photo:
+                            _CACHED_PHOTO_FILE_IDS[photo_path] = msg.photo[-1].file_id
                         return
                 else:
                     sound_cue = SOUND_ICONS.get(sound_type, "🎬 *O'YIN YANGILANISHI*")
                     try:
-                        await bot.send_photo(
+                        msg = await bot.send_photo(
                             chat_id=chat_id,
-                            photo=photo,
+                            photo=photo_payload,
                             caption=sound_cue,
                             parse_mode=parse_mode
                         )
+                        if msg and hasattr(msg, "photo") and msg.photo:
+                            _CACHED_PHOTO_FILE_IDS[photo_path] = msg.photo[-1].file_id
                     except Exception:
-                        photo.seek(0)
-                        await bot.send_photo(
+                        if photo_file:
+                            photo_file.seek(0)
+                        msg = await bot.send_photo(
                             chat_id=chat_id,
-                            photo=photo,
+                            photo=photo_payload,
                             caption=sound_cue,
                             parse_mode=None
                         )
+                        if msg and hasattr(msg, "photo") and msg.photo:
+                            _CACHED_PHOTO_FILE_IDS[photo_path] = msg.photo[-1].file_id
                     await _safe_send_message(
                         bot=bot,
                         chat_id=chat_id,
@@ -148,8 +169,12 @@ async def send_atmospheric_message(
                         parse_mode=parse_mode
                     )
                     return
+            finally:
+                if photo_file:
+                    photo_file.close()
         except Exception as e:
             log.warning("Could not send photo %s: %s. Falling back to plain text.", photo_path, e)
+            _CACHED_PHOTO_FILE_IDS.pop(photo_path, None)
 
     await _safe_send_message(
         bot=bot,
