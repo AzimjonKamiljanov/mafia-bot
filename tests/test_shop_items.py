@@ -496,6 +496,7 @@ async def test_pre_armed_ruler_protection_saves_at_verdict_and_blocks_second_att
     game["phase"] = "verdict"
     game["accused_uid"] = accused_uid
     game["verdict_votes"] = {voter_uid: "kill"}
+    game["weather"] = None
 
     await resolve_verdict(ctx, game)
     assert game["alive"][accused_uid] is False, "Accused must die on second verdict in same game"

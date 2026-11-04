@@ -175,14 +175,6 @@ ROLE_METADATA: Dict[str, RoleInfo] = {
         priority=99,
         description="Mafiyaning fidoiysi. Kunduzi sudda osiladigan bo'lsa, o'zini portlatib, bitta ayblovchini o'zi bilan olib ketadi."
     ),
-    "Bori": RoleInfo(
-        name="Bo'ri",
-        team="red",
-        icon="🐺",
-        night_active=True,
-        priority=4,
-        description="Yirtqich bo'ri. Tungi hujumlardan omon qoladi va hujumchini yashirincha o'z domiga tortadi."
-    ),
     "Bo'ri": RoleInfo(
         name="Bo'ri",
         team="red",
@@ -245,6 +237,7 @@ ROLE_METADATA: Dict[str, RoleInfo] = {
 
 # Cross-reference aliases
 _aliases = {
+    "Bori": "Bo'ri",
     "Tinch axoli": "Fuqaro",
     "Komissar katani": "Detektiv",
     "Komissar": "Detektiv",

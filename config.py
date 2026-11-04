@@ -70,7 +70,6 @@ ROLES = {
     "Soxtachi": "red",
     "Maftunkor": "red",
     "Kamikadze": "red",
-    "Bori": "red",
     "Bo'ri": "red",
 
     # 🟡 Neytrallar (Solo)
@@ -89,7 +88,6 @@ REPEATABLE_ROLES = {
     "Fuqaro",
     "Qotil",
     "Soya",
-    "Bori",
     "Bo'ri",
     "Qasoskor",
     "Tansoqchi",
@@ -119,7 +117,6 @@ NIGHT_ACTIVE_ROLES = {
     "Pul o'g'risi",
     "Firibgar",
     "Bo'ri",
-    "Bori",
 }
 
 # 🛒 DO'KON KONSTANTALARI

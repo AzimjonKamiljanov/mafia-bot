@@ -196,15 +196,6 @@ ROLE_DOSSIERS: Dict[str, RoleDossier] = {
         actions_day="Jasur va qat'iy harakat qiling.",
         tactical_tip="Sizni tunda o'ldirish oson emas, shuning uchun agressiv tarzda mafiya dushmanlarini yo'q qilishga yordam bering."
     ),
-    "Bori": RoleDossier(
-        role_name="Bori",
-        team_display="Mafiya sindikati 🔴",
-        icon="🐺",
-        goal="Yirtqich kuchi bilan mafiyani himoya qilish va hujumlarga chidash.",
-        actions_night="Mafiya hujumlarida qatnashadi. Birinchi tungi hujumga qarshi immunitetga ega.",
-        actions_day="Jasur va qat'iy harakat qiling.",
-        tactical_tip="Sizni tunda o'ldirish oson emas, shuning uchun agressiv tarzda mafiya dushmanlarini yo'q qilishga yordam bering."
-    ),
 
     # 🟡 YAKKAXON NEYTRALLAR (SOLO)
     "Joker": RoleDossier(
@@ -264,6 +255,8 @@ ROLE_DOSSIERS: Dict[str, RoleDossier] = {
 }
 
 def get_role_dossier(role_name: str) -> RoleDossier:
+    if role_name == "Bori":
+        role_name = "Bo'ri"
     if role_name in ROLE_DOSSIERS:
         return ROLE_DOSSIERS[role_name]
     team = ROLES.get(role_name, "blue")

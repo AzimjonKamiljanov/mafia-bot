@@ -26,9 +26,7 @@ ROLE_LIVE_MESSAGES = {
     "Soya": f"{tg_emoji('mafia', '🥷')} Soya tun zulmatida izquvarlar ortidan ketdi... 🥷",
     "Soxtachi": f"{tg_emoji('item_doc', '🎭', 'SHOP')} Soxtachi qora dalilni joylashtirish uchun yo‘lga chiqdi... 🎭",
     "Maftunkor": f"{tg_emoji('detective', '💃')} Maftunkor nishon tomon yo‘l oldi... 💃",
-    "Bo‘ri": f"{tg_emoji('mafia', '🐺')} Bo‘ri tun qorong‘usida ovga chiqdi... 🐺",
     "Bo'ri": f"{tg_emoji('mafia', '🐺')} Bo‘ri tun qorong‘usida ovga chiqdi... 🐺",
-    "Bori": f"{tg_emoji('mafia', '🐺')} Bo‘ri tun qorong‘usida ovga chiqdi... 🐺",
 
     # 🟡 Yakkaxon
     "Maniak": f"{tg_emoji('mafia_win', '🩸')} Maniak tun qorong‘usida ovga chiqdi... 🩸",
@@ -61,9 +59,7 @@ ROLE_SLEEP_MESSAGES = {
     "Soya": f"{tg_emoji('mafia', '🥷')} Soya bu tun dam oldi... 😴",
     "Soxtachi": f"{tg_emoji('item_doc', '🎭', 'SHOP')} Soxtachi bu tun dam oldi... 😴",
     "Maftunkor": f"{tg_emoji('detective', '💃')} Maftunkor bu tun dam oldi... 😴",
-    "Bo‘ri": f"{tg_emoji('mafia', '🐺')} Bo‘ri bu tun dam oldi... 😴",
     "Bo'ri": f"{tg_emoji('mafia', '🐺')} Bo‘ri bu tun dam oldi... 😴",
-    "Bori": f"{tg_emoji('mafia', '🐺')} Bo‘ri bu tun dam oldi... 😴",
 
     # 🟡 Yakkaxon
     "Maniak": f"{tg_emoji('mafia_win', '🩸')} Maniak bu tun dam oldi... 😴",

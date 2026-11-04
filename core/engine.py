@@ -279,10 +279,6 @@ async def finish_game(
     from config import BOT_USERNAME
     from roles.base import format_role_display
 
-    main_mod = sys.modules.get("main")
-    if main_mod and hasattr(main_mod, "finish_game") and main_mod.finish_game != finish_game:
-        return await main_mod.finish_game(context, game, winners, joker=joker, winning_team=winning_team)
-
     if game.get("_finish_started"):
         return
     game["_finish_started"] = True
