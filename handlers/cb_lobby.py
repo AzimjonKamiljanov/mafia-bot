@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from config import DEFAULT_LOBBY_SECONDS, MIN_PLAYERS, MAX_PLAYERS
 from database.models import get_group_settings, track_group_member, get_badge, is_admin
-from core.engine import games, lobbies, find_game_by_user, cancel_lobby_timer, abort_lobby, abort_game
+from core.engine import games, lobbies, find_game_by_user, cancel_lobby_timer, abort_lobby, abort_game, get_chat_lock
 from phases.lobby import lobby_text, lobby_keyboard, _lobby_timer, call_players_in_chat, start_game
 from core.navigation import resolve_and_cache_group_link
 
@@ -27,69 +27,87 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
             return True
         chat_id = int(parts[1])
-        if chat_id in games:
-            await q.answer("⚠️ Ushbu guruhda o'yin allaqachon boshlangan!", show_alert=True)
-            return True
 
-        lobby = lobbies.get(chat_id)
-        if not lobby or not lobby.get("open"):
-            settings = await get_group_settings(chat_id)
-            group_link = await resolve_and_cache_group_link(context.bot, q.message.chat) if q.message and q.message.chat else None
-            lobby = {
-                "chat_id": chat_id,
-                "players": [],
-                "names": {},
-                "badges": {},
-                "open": True,
-                "created_at": asyncio.get_event_loop().time(),
-                "settings": settings,
-                "message_id": q.message.message_id if q.message else None,
-                "group_link": group_link
-            }
-            lobbies[chat_id] = lobby
-            timeout_sec = int(settings.get("lobby_seconds", DEFAULT_LOBBY_SECONDS))
-            cancel_lobby_timer(lobby)
-            lobby["_timer_task"] = asyncio.create_task(_lobby_timer(context, chat_id, timeout_sec))
+        async with get_chat_lock(chat_id):
+            if chat_id in games:
+                game = games[chat_id]
+                if game.get("phase") in ("finished", "aborted"):
+                    games.pop(chat_id, None)
+                else:
+                    await q.answer("⚠️ Ushbu guruhda o'yin allaqachon boshlangan!", show_alert=True)
+                    return True
 
-        if uid in lobby["players"]:
-            await q.answer("ℹ️ Siz allaqachon o'yinga qo'shilgansiz!")
-            return True
+            lobby = lobbies.get(chat_id)
+            if not lobby or not lobby.get("open"):
+                settings = await get_group_settings(chat_id)
+                group_link = await resolve_and_cache_group_link(context.bot, q.message.chat) if q.message and q.message.chat else None
+                lobby = {
+                    "chat_id": chat_id,
+                    "players": [],
+                    "names": {},
+                    "badges": {},
+                    "open": True,
+                    "created_at": asyncio.get_event_loop().time(),
+                    "settings": settings,
+                    "message_id": q.message.message_id if q.message else None,
+                    "group_link": group_link
+                }
+                lobbies[chat_id] = lobby
+                timeout_sec = int(settings.get("lobby_seconds", DEFAULT_LOBBY_SECONDS))
+                cancel_lobby_timer(lobby)
+                lobby["_timer_task"] = asyncio.create_task(_lobby_timer(context, chat_id, timeout_sec))
 
-        existing_game = find_game_by_user(uid)
-        if existing_game and existing_game.get("chat") != chat_id and existing_game.get("alive", {}).get(uid, False):
-            await q.answer("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.", show_alert=True)
-            return True
-
-        for other_cid, other_lob in lobbies.items():
-            if other_cid != chat_id and uid in other_lob.get("players", []):
-                await q.answer("⚠️ Siz boshqa guruhdagi ochiq lobbida kutmoqdasiz! Avval u yerdan chiqing.", show_alert=True)
+            if uid in lobby["players"]:
+                await q.answer("ℹ️ Siz allaqachon o'yinga qo'shilgansiz!")
                 return True
 
-        if len(lobby["players"]) >= MAX_PLAYERS:
-            await q.answer("❌ Lobby to'lgan!", show_alert=True)
+            existing_game = find_game_by_user(uid)
+            if existing_game and existing_game.get("chat") != chat_id and existing_game.get("phase") not in ("finished", "aborted") and existing_game.get("alive", {}).get(uid, False):
+                await q.answer("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.", show_alert=True)
+                return True
+
+            # Auto-switch from any other lobby smoothly without blocking
+            for other_cid, other_lob in list(lobbies.items()):
+                if other_cid != chat_id and uid in other_lob.get("players", []):
+                    other_lob["players"].remove(uid)
+                    other_lob.get("names", {}).pop(uid, None)
+                    other_lob.get("badges", {}).pop(uid, None)
+                    other_lob.get("premium", {}).pop(uid, None)
+
+            if len(lobby["players"]) >= MAX_PLAYERS:
+                await q.answer("❌ Lobby to'lgan!", show_alert=True)
+                return True
+
+            lobby["players"].append(uid)
+            lobby["names"][uid] = (user.full_name or user.first_name)[:40]
+            badge = await get_badge(uid)
+            if badge:
+                lobby["badges"][uid] = badge
+            if getattr(user, "is_premium", False):
+                lobby.setdefault("premium", {})[uid] = True
+
+            await track_group_member(chat_id, user)
+            await q.answer("✅ Siz o'yinga muvaffaqiyatli qo'shildingiz!")
+
+            try:
+                if q.message and q.message.chat_id == chat_id:
+                    await q.edit_message_text(
+                        text=lobby_text(lobby),
+                        reply_markup=lobby_keyboard(chat_id, include_bot_link=True),
+                        parse_mode="HTML"
+                    )
+                elif lobby.get("message_id"):
+                    await context.bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=lobby["message_id"],
+                        text=lobby_text(lobby),
+                        reply_markup=lobby_keyboard(chat_id, include_bot_link=True),
+                        parse_mode="HTML"
+                    )
+            except Exception as e:
+                if "Message is not modified" not in str(e):
+                    log.warning("Could not edit lobby message on join: %s", e)
             return True
-
-        lobby["players"].append(uid)
-        lobby["names"][uid] = (user.full_name or user.first_name)[:40]
-        badge = await get_badge(uid)
-        if badge:
-            lobby["badges"][uid] = badge
-        if getattr(user, "is_premium", False):
-            lobby.setdefault("premium", {})[uid] = True
-
-        await track_group_member(chat_id, user)
-        await q.answer("✅ Siz o'yinga muvaffaqiyatli qo'shildingiz!")
-
-        try:
-            await q.edit_message_text(
-                text=lobby_text(lobby),
-                reply_markup=lobby_keyboard(chat_id, include_bot_link=True),
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            if "Message is not modified" not in str(e):
-                log.warning("Could not edit lobby message on join: %s", e)
-        return True
 
     if data.startswith("lobby_call:"):
         parts = data.split(":")

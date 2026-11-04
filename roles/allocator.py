@@ -3,17 +3,18 @@ from typing import List, Optional, Set
 from config import MIN_PLAYERS, MAX_PLAYERS, ROLES, ROLE_ORDER, REPEATABLE_ROLES
 
 def choose_roles(n: int, disabled: Optional[Set[str]] = None) -> Optional[List[str]]:
-    """Strict, balanced, dependency-safe role allocator for 4 to 35 players.
+    """Strict, balanced, dependency-safe role allocator for 4 to 100+ players.
 
     Formulas & Guarantees:
-      - Length: always returns a valid list of length n for 4 <= n <= 35.
+      - Length: always returns a valid list of length n for 4 <= n <= MAX_PLAYERS.
       - Mafia count: red_count = max(1, n // 5)
           * n = 4..9: 1 mafia (Boshliq / Don)
           * n = 10..14: 2 mafia (Boshliq + Qotil / Mafia)
           * n = 15..19: 3 mafia
           * n = 20..24: 4 mafia
           * n = 25..29: 5 mafia
-          * n = 30..35: 6-7 mafia
+          * n = 30..34: 6 mafia
+          * n = 35..100: max(1, n // 5) mafia
       - Solo count:
           * n < 7: 0
           * 7 <= n <= 11: 1 (e.g. n=10 -> 7 Tinch, 2 Mafia, 1 Yakkaxon)

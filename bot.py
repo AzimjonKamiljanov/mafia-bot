@@ -14,7 +14,7 @@ from config import BOT_TOKEN, ADMIN_IDS
 from database.db import init_db, close_db
 from database.models import ensure_user, track_group_member
 from handlers import (
-    start_cmd, salom_cmd, startgame_cmd, will_cmd, profile_cmd, balance_cmd, rating_cmd, guide_cmd,
+    join_cmd, start_cmd, salom_cmd, startgame_cmd, will_cmd, profile_cmd, balance_cmd, rating_cmd, guide_cmd,
     stop_cmd, chiqish_cmd, reveal_cmd, shop_cmd, clan_cmd, newclan_cmd,
     para_cmd, dpara_cmd, mypara_cmd, bro_cmd, dbro_cmd, mybro_cmd,
     givegul_cmd, send_cmd, coin_cmd, gold_cmd, givecoin_cmd, givegold_cmd,
@@ -58,6 +58,47 @@ async def track_group_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if user.id in game.get("players", []) and game.get("alive", {}).get(user.id, False):
                         from core.afk_penalty import record_player_activity
                         record_player_activity(game, user.id)
+
+            # Quick join via group chat text ('+', '+1', '➕', 'men') when lobby is open
+            if chat and chat.type in ("group", "supergroup") and update.message and update.message.text:
+                raw_text = update.message.text.strip().lower()
+                if raw_text in ("+", "+1", "➕", "men", "man"):
+                    from core.engine import lobbies, get_chat_lock
+                    from config import MAX_PLAYERS
+                    from phases.lobby import lobby_text, lobby_keyboard
+                    from database.models import get_badge
+                    import html
+                    async with get_chat_lock(chat.id):
+                        lob = lobbies.get(chat.id)
+                        if lob and lob.get("open") and user and user.id not in lob["players"] and len(lob["players"]) < MAX_PLAYERS:
+                            for other_cid, other_lob in list(lobbies.items()):
+                                if other_cid != chat.id and user.id in other_lob.get("players", []):
+                                    other_lob["players"].remove(user.id)
+                                    other_lob.get("names", {}).pop(user.id, None)
+                                    other_lob.get("badges", {}).pop(user.id, None)
+                                    other_lob.get("premium", {}).pop(user.id, None)
+                            lob["players"].append(user.id)
+                            lob["names"][user.id] = (user.full_name or user.first_name)[:40]
+                            badge = await get_badge(user.id)
+                            if badge:
+                                lob["badges"][user.id] = badge
+                            if getattr(user, "is_premium", False):
+                                lob.setdefault("premium", {})[user.id] = True
+                            await update.message.reply_text(
+                                f"✅ <b>{html.escape(user.full_name or user.first_name)}</b> o'yinga muvaffaqiyatli qo'shildi! ({len(lob['players'])}/{MAX_PLAYERS})",
+                                parse_mode="HTML"
+                            )
+                            if lob.get("message_id"):
+                                try:
+                                    await context.bot.edit_message_text(
+                                        chat_id=chat.id,
+                                        message_id=lob["message_id"],
+                                        text=lobby_text(lob),
+                                        reply_markup=lobby_keyboard(chat.id, include_bot_link=True),
+                                        parse_mode="HTML"
+                                    )
+                                except Exception:
+                                    pass
         except (TelegramError, Exception) as e:
             log.debug("Operation suppressed in %s: %s", __name__, e)
 
@@ -119,6 +160,7 @@ PM_DISPATCH_TABLE = {
     ("dbro",): dbro_cmd,
     ("mybro", "birodar", "broim"): mybro_cmd,
     ("oyin", "o'yin", "game", "play", "boshlash", "oyun"): create_lobby,
+    ("join", "qoshil", "qoshilish", "kir", "kirish"): join_cmd,
     ("startgame", "start_game", "go"): startgame_cmd,
     ("stop", "toxtat"): stop_cmd,
     ("chiqish", "leave", "tark"): chiqish_cmd,
@@ -264,6 +306,7 @@ async def post_init(app: Application):
         # 1. Group commands: Only group game commands
         group_commands = [
             BotCommand("game", "Guruhda Mafia o'yinini ochish"),
+            BotCommand("join", "O'yinga qo'shilish"),
             BotCommand("startgame", "O'yinni boshlash"),
             BotCommand("call", "O'yinchilarni chaqirish"),
             BotCommand("settings", "O'yin sozlamalari"),
@@ -423,6 +466,7 @@ def create_bot_app() -> Application:
     # Core commands
     app.add_handler(CommandHandler(["start", "menu", "menyu"], start_cmd))
     app.add_handler(CommandHandler(["salom", "assalom", "assalomualaykum", "salomlar", "hello", "hi"], salom_cmd))
+    app.add_handler(CommandHandler(["join", "qoshil", "qoshilish", "kir", "kirish"], join_cmd))
     app.add_handler(CommandHandler(["startgame", "boshlash", "start_game", "play", "go"], startgame_cmd))
     app.add_handler(CommandHandler(["game", "oyun", "oyin"], create_lobby))
     app.add_handler(CommandHandler(["settings", "sozlama", "sozlamalar"], settings_cmd))

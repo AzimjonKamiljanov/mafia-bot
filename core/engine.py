@@ -83,13 +83,13 @@ def get_lobby(chat_id: int) -> Optional[Dict[str, Any]]:
 
 def find_game_by_user(user_id: int) -> Optional[Dict[str, Any]]:
     for g in games.values():
-        if user_id in g.get("players", []):
+        if g.get("phase") not in ("finished", "aborted") and user_id in g.get("players", []):
             return g
     return None
 
 def find_lobby_by_user(user_id: int) -> Optional[Dict[str, Any]]:
     for l in lobbies.values():
-        if user_id in l.get("players", []):
+        if l.get("open") and user_id in l.get("players", []):
             return l
     return None
 

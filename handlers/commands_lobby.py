@@ -4,12 +4,104 @@ from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import MIN_PLAYERS, BOT_USERNAME
-from database.models import is_admin, ensure_user, track_group_member
-from core.engine import games, lobbies, display_name, abort_lobby, abort_game
+from config import MIN_PLAYERS, MAX_PLAYERS, BOT_USERNAME
+from database.models import is_admin, ensure_user, track_group_member, get_badge
+from core.engine import games, lobbies, display_name, abort_lobby, abort_game, find_game_by_user, get_chat_lock
 from phases.lobby import lobby_text, lobby_keyboard, start_game, call_players_in_chat
 
 log = logging.getLogger("detektiv.handlers.commands_lobby")
+
+
+async def join_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    user = update.effective_user
+    msg = update.effective_message or update.message
+    if not chat or not msg or not user:
+        return
+    if chat.type not in ("group", "supergroup"):
+        add_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🎮 <b>O'yinga qo'shilish (/join)</b>\n\n"
+            "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+            "Guruhda yangi o'yin ochish uchun <b>/game</b> buyrug'ini yuboring va o'sha yerdan o'yinga qo'shiling!",
+            reply_markup=add_kb,
+            parse_mode="HTML"
+        )
+        return
+
+    chat_id = chat.id
+    async with get_chat_lock(chat_id):
+        if chat_id in games:
+            game = games[chat_id]
+            if game.get("phase") in ("finished", "aborted"):
+                games.pop(chat_id, None)
+            else:
+                await msg.reply_text("⚠️ Ushbu guruhda o'yin allaqachon boshlangan!")
+                return
+
+        lobby = lobbies.get(chat_id)
+        if not lobby or not lobby.get("open"):
+            await msg.reply_text(
+                "ℹ️ Hozirda ushbu guruhda faol lobby yo'q. Yangi o'yin ochish uchun <b>/game</b> buyrug'ini yuboring.",
+                parse_mode="HTML"
+            )
+            return
+
+        uid = user.id
+        if uid in lobby["players"]:
+            await msg.reply_text(
+                f"ℹ️ <b>{html.escape(user.full_name or user.first_name)}</b>, siz allaqachon o'yinga qo'shilgansiz!",
+                parse_mode="HTML"
+            )
+            return
+
+        existing_game = find_game_by_user(uid)
+        if existing_game and existing_game.get("chat") != chat_id and existing_game.get("phase") not in ("finished", "aborted") and existing_game.get("alive", {}).get(uid, False):
+            await msg.reply_text("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.")
+            return
+
+        # Auto-switch from any other lobby seamlessly
+        for other_cid, other_lob in list(lobbies.items()):
+            if other_cid != chat_id and uid in other_lob.get("players", []):
+                other_lob["players"].remove(uid)
+                other_lob.get("names", {}).pop(uid, None)
+                other_lob.get("badges", {}).pop(uid, None)
+                other_lob.get("premium", {}).pop(uid, None)
+
+        if len(lobby["players"]) >= MAX_PLAYERS:
+            await msg.reply_text(f"❌ Lobby to'lgan (maksimal {MAX_PLAYERS} o'yinchi)!")
+            return
+
+        lobby["players"].append(uid)
+        lobby["names"][uid] = (user.full_name or user.first_name)[:40]
+        badge = await get_badge(uid)
+        if badge:
+            lobby["badges"][uid] = badge
+        if getattr(user, "is_premium", False):
+            lobby.setdefault("premium", {})[uid] = True
+
+        await ensure_user(user)
+        await track_group_member(chat_id, user)
+        await msg.reply_text(
+            f"✅ <b>{html.escape(user.full_name or user.first_name)}</b> o'yinga muvaffaqiyatli qo'shildi! ({len(lobby['players'])}/{MAX_PLAYERS})",
+            parse_mode="HTML"
+        )
+
+        if lobby.get("message_id"):
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=lobby["message_id"],
+                    text=lobby_text(lobby),
+                    reply_markup=lobby_keyboard(chat_id, include_bot_link=True),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                if "Message is not modified" not in str(e):
+                    log.warning("Could not edit lobby message on join_cmd: %s", e)
 
 
 async def startgame_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):

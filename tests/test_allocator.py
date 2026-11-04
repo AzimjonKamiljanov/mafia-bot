@@ -3,7 +3,7 @@ from roles.allocator import choose_roles
 from config import MIN_PLAYERS, MAX_PLAYERS, ROLES
 
 def test_choose_roles_all_player_counts():
-    """Verify that choose_roles generates a valid, properly sized team for 4 to 35 players."""
+    """Verify that choose_roles generates a valid, properly sized team for 4 to 100 players."""
     for n in range(MIN_PLAYERS, MAX_PLAYERS + 1):
         for trial in range(10):
             roles = choose_roles(n)
@@ -27,7 +27,8 @@ def test_choose_roles_all_player_counts():
 
 def test_choose_roles_boundaries():
     assert choose_roles(3) is None
-    assert choose_roles(36) is None
+    assert choose_roles(MAX_PLAYERS + 1) is None
+    assert choose_roles(36) is not None
 
 def test_choose_roles_with_disabled():
     disabled = {"Maniak", "Pirotexnik"}

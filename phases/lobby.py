@@ -40,9 +40,12 @@ def lobby_text(lobby: Dict[str, Any]) -> str:
 
     if players:
         from core.visuals import format_player_title_html
-        for i, uid in enumerate(players, 1):
+        display_limit = 25
+        for i, uid in enumerate(players[:display_limit], 1):
             name = format_player_title_html(lobby, uid)
             lines.append(f"{i}. {tg_emoji('profile', '👤')} {name}")
+        if count > display_limit:
+            lines.append(f"• ... va yana <b>{count - display_limit} nafar</b> o'yinchi ro'yxatdan o'tdi!")
     else:
         lines.append("<i>Hozircha hech kim ro'yxatdan o'tmadi.</i>")
 
@@ -53,6 +56,7 @@ def lobby_text(lobby: Dict[str, Any]) -> str:
         "",
         f"{tg_emoji('trigger', 'ℹ️')} <b>Buyruqlar:</b>",
         "• /start (yoki /startgame) — O'yinni boshlash",
+        "• /join — O'yinga qo'shilish",
         "• /call — O'yinchilarni chaqirish",
         "• /chiqish — Lobbyni tark etish",
         "• /stop — O'yinni to'xtatish"
@@ -185,26 +189,33 @@ async def create_lobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = chat.id
     if chat_id in games:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="⚠️ Ushbu guruhda ayni paytda o'yin davom etmoqda!"
-        )
-        return
+        game = games[chat_id]
+        if game.get("phase") in ("finished", "aborted"):
+            games.pop(chat_id, None)
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="⚠️ Ushbu guruhda ayni paytda o'yin davom etmoqda!"
+            )
+            return
 
     if chat_id in lobbies:
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=lobby_text(lobbies[chat_id]),
-            reply_markup=lobby_keyboard(chat_id, include_bot_link=True),
-            parse_mode="HTML"
-        )
-        lobbies[chat_id]["message_id"] = msg.message_id
-        try:
-            await context.bot.pin_chat_message(chat_id=chat_id, message_id=msg.message_id, disable_notification=True)
-            lobbies[chat_id]["pinned_message_id"] = msg.message_id
-        except Exception as e:
-            log.warning("Could not pin lobby message in chat %s: %s", chat_id, e)
-        return
+        if not lobbies[chat_id].get("open"):
+            lobbies.pop(chat_id, None)
+        else:
+            msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text=lobby_text(lobbies[chat_id]),
+                reply_markup=lobby_keyboard(chat_id, include_bot_link=True),
+                parse_mode="HTML"
+            )
+            lobbies[chat_id]["message_id"] = msg.message_id
+            try:
+                await context.bot.pin_chat_message(chat_id=chat_id, message_id=msg.message_id, disable_notification=True)
+                lobbies[chat_id]["pinned_message_id"] = msg.message_id
+            except Exception as e:
+                log.warning("Could not pin lobby message in chat %s: %s", chat_id, e)
+            return
 
     await ensure_user(user)
     await track_group_member(chat_id, user)
@@ -314,7 +325,7 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     roles_list = choose_roles(n, disabled=disabled)
     if not roles_list or len(roles_list) != n:
         # Emergency fallback
-        roles_list = ["Detektiv", "Doktor", "Boshliq", "Fuqaro"] * 10
+        roles_list = ["Detektiv", "Doktor", "Boshliq", "Fuqaro"] * (max(10, (n // 4) + 2))
         roles_list = roles_list[:n]
 
     player_roles = dict(zip(players, roles_list))

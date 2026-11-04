@@ -1,6 +1,7 @@
 """Command handlers router and re-exports for Detektiv Mafia."""
 
 from handlers.commands_lobby import (
+    join_cmd,
     startgame_cmd,
     stop_cmd,
     chiqish_cmd,
@@ -26,6 +27,7 @@ from handlers.commands_meta import (
 )
 
 __all__ = [
+    "join_cmd",
     "startgame_cmd",
     "stop_cmd",
     "chiqish_cmd",
