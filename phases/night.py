@@ -783,7 +783,7 @@ async def complete_night_resolution(
             det_id = int(det_uid)
         except Exception:
             continue
-        if not game["alive"].get(det_id, False):
+        if not game["alive"].get(det_id, False) or det_id in deaths:
             continue
         tgt = info["target"]
         real_role = game["roles"].get(tgt, "Fuqaro")

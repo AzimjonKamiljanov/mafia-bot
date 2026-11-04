@@ -246,8 +246,8 @@ async def check_winner(context, game: Dict[str, Any]) -> bool:
         await finish_game(context, game, solo_killers, winning_team="solo")
         return True
 
-    # 2. Shahar g'alabasi: barcha Mafia va xavfli Neytrallar yo'q qilinsa
-    if not red and not solo:
+    # 2. Shahar g'alabasi: barcha Mafia va qotil Neytrallar (Maniak, Pirotexnik) yo'q qilinsa
+    if not red and not solo_killers and blue:
         await finish_game(context, game, blue, winning_team="blue")
         return True
 

@@ -75,10 +75,16 @@ async def _verdict_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, night
         await resolve_verdict(context, game)
 
 async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
-    if game.get("phase") != "verdict" or game.get("_finish_started"):
+    if game.get("phase") != "verdict" or game.get("_finish_started") or game.get("_resolving_verdict"):
         return
+    game["_resolving_verdict"] = True
     cancel_game_timer(game)
+    try:
+        await _do_resolve_verdict(context, game)
+    finally:
+        game.pop("_resolving_verdict", None)
 
+async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     chat_id = game["chat"]
     accused_uid = game.get("accused_uid")
     if not accused_uid or not game["alive"].get(accused_uid, False):

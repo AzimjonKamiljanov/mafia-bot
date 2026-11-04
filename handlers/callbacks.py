@@ -450,6 +450,16 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.answer("ℹ️ Siz allaqachon o'yinga qo'shilgansiz!")
             return
 
+        existing_game = find_game_by_user(uid)
+        if existing_game and existing_game.get("chat") != chat_id and existing_game.get("alive", {}).get(uid, False):
+            await q.answer("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.", show_alert=True)
+            return
+
+        for other_cid, other_lob in lobbies.items():
+            if other_cid != chat_id and uid in other_lob.get("players", []):
+                await q.answer("⚠️ Siz boshqa guruhdagi ochiq lobbida kutmoqdasiz! Avval u yerdan chiqing.", show_alert=True)
+                return
+
         from config import MAX_PLAYERS
         if len(lobby["players"]) >= MAX_PLAYERS:
             await q.answer("❌ Lobby to'lgan!", show_alert=True)

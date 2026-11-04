@@ -59,6 +59,15 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 target_chat_id = int(arg.replace("join_", ""))
                 lobby = lobbies.get(target_chat_id)
                 if lobby and lobby.get("open"):
+                    existing_game = find_game_by_user(user.id)
+                    if existing_game and existing_game.get("chat") != target_chat_id and existing_game.get("alive", {}).get(user.id, False):
+                        await update.message.reply_text("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.")
+                        return
+                    existing_lobby = find_lobby_by_user(user.id)
+                    if existing_lobby and existing_lobby.get("chat_id") != target_chat_id:
+                        await update.message.reply_text("⚠️ Siz boshqa guruhdagi ochiq lobbida kutmoqdasiz! Avval u yerdan chiqing.")
+                        return
+
                     if user.id not in lobby["players"]:
                         lobby["players"].append(user.id)
                         lobby["names"][user.id] = (user.full_name or user.first_name)[:40]
@@ -845,7 +854,46 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
             return
-    await msg.reply_text("ℹ️ Siz hech qanday faol lobbida emassiz.")
+
+    game = games.get(chat.id)
+    if game and user.id in game.get("players", []):
+        if not game.get("alive", {}).get(user.id, False):
+            await msg.reply_text("💀 Siz allaqachon halok bo'lgansiz.")
+            return
+
+        game["alive"][user.id] = False
+        p_name = display_name(game, user.id)
+        await msg.reply_text(
+            f"🚪 <b>{html.escape(p_name)}</b> o'yinni tark etdi (halok bo'ldi deb hisoblanadi).",
+            parse_mode="HTML"
+        )
+
+        from core.engine import check_winner, save_runtime
+        await save_runtime(game)
+
+        won = await check_winner(context, game)
+        if won:
+            return
+
+        cur_phase = game.get("phase")
+        if cur_phase == "verdict" and game.get("accused_uid") == user.id:
+            from core.engine import cancel_game_timer
+            cancel_game_timer(game)
+            await msg.reply_text("⚖️ Ayblanuvchi o'yinni tark etgani sababli sud yakunlandi. Shahar tun quchog'iga kirdi.")
+            game["night"] = game.get("night", 1) + 1
+            from phases.night import start_night
+            await start_night(context, game)
+            return
+        elif cur_phase == "voting":
+            alive_voters = [u for u in game.get("players", []) if game.get("alive", {}).get(u, False)]
+            votes = game.get("votes", {})
+            if alive_voters and all(u in votes for u in alive_voters):
+                from phases.voting import finish_voting
+                await finish_voting(context, game)
+                return
+        return
+
+    await msg.reply_text("ℹ️ Siz hech qanday faol o'yinda yoki lobbida emassiz.")
 
 async def salom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Foydalanuvchiga 'Assalomu alaykum' deb uni metka (mention) qilib javob beradi."""

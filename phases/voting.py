@@ -89,96 +89,114 @@ async def _vote_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, night_nu
         await finish_voting(context, game)
 
 async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
-    if game.get("phase") != "voting" or game.get("_finish_started"):
+    if game.get("phase") != "voting" or game.get("_finish_started") or game.get("_resolving_voting"):
         return
+    game["_resolving_voting"] = True
     cancel_game_timer(game)
 
-    chat_id = game["chat"]
-    votes: Dict[int, Any] = game.get("votes", {})
-    tally: Dict[Any, int] = {}
-
-    # Weight votes (Mayor counts 3 votes if revealed, Extra Vote adds +1)
-    mayor_revealed = game.get("mayor_revealed", set())
-    extra_votes = game.get("extra_votes", set())
-    for voter_uid, target in votes.items():
-        if not game["alive"].get(voter_uid, False):
-            continue
-        weight = 3 if voter_uid in mayor_revealed else 1
-        if voter_uid in extra_votes:
-            weight += 1
-        tally[target] = tally.get(target, 0) + weight
-
-    # Clear active round extra votes so they do not leak into subsequent voting rounds
-    game.setdefault("extra_votes", set()).clear()
-
-    # Check results
-    lines = [
-        f"{tg_emoji('voting', '🧊')} <b>Ovoz berish natijalari:</b>",
-        ""
-    ]
-
-    for target, count in tally.items():
-        if target == "none":
-            lines.append(f"• 🕊️ Hech kimga: <b>{count} ovoz</b>")
-        else:
-            try:
-                t_uid = int(target)
-                lines.append(f"• 👤 <b>{display_name(game, t_uid)}</b>: <b>{count} ovoz</b>")
-            except Exception:
-                pass
-
-    if not tally:
-        lines.append("<i>Hech kim ovoz bermadi.</i>")
-
-    from core.navigation import bot_action_keyboard
-    action_kb = bot_action_keyboard(chat_id, "💬 Botga o'tish (Amallar/Ovoz)")
-
     try:
-        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb, parse_mode="HTML")
-    except Exception:
-        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb)
+        chat_id = game["chat"]
+        votes: Dict[int, Any] = game.get("votes", {})
+        tally: Dict[Any, int] = {}
 
-    # AFK sleepers check and humorous shout
-    try:
-        from core.afk_penalty import handle_voting_sleepers
-        await handle_voting_sleepers(context, game)
-    except Exception as e:
-        log.warning("Could not handle voting sleepers: %s", e)
+        # Weight votes (Mayor counts 3 votes if revealed, Extra Vote adds +1)
+        mayor_revealed = game.get("mayor_revealed", set())
+        extra_votes = game.get("extra_votes", set())
+        for voter_uid, target in votes.items():
+            if not game["alive"].get(voter_uid, False):
+                continue
+            weight = 3 if voter_uid in mayor_revealed else 1
+            if voter_uid in extra_votes:
+                weight += 1
+            tally[target] = tally.get(target, 0) + weight
 
-    # Determine highest voted candidate
-    valid_tally = {k: v for k, v in tally.items() if k != "none"}
-    if not valid_tally:
-        # No suspect chosen, proceed to night
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"🕊️ {tg_emoji('night', '🌙')} <b>Hech kim sud minbariga chiqarilmadi. Shahar yana tun quchog'iga kirdi.</b>",
-            reply_markup=action_kb,
-            parse_mode="HTML"
-        )
-        game["night"] = game.get("night", 1) + 1
-        from phases.night import start_night
-        await start_night(context, game)
-        return
+        # Clear active round extra votes so they do not leak into subsequent voting rounds
+        game.setdefault("extra_votes", set()).clear()
 
-    sorted_targets = sorted(valid_tally.items(), key=lambda x: x[1], reverse=True)
-    top_target, top_votes = sorted_targets[0]
+        # Check results
+        lines = [
+            f"{tg_emoji('voting', '🧊')} <b>Ovoz berish natijalari:</b>",
+            ""
+        ]
 
-    # Check for tie
-    if len(sorted_targets) > 1 and sorted_targets[1][1] == top_votes:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"{tg_emoji('voting', '⚖️')} <b>Ovozlar teng keldi!</b> Shahar ikkilanib qoldi va hech kim sud minbariga chiqarilmadi.",
-            reply_markup=action_kb,
-            parse_mode="HTML"
-        )
-        game["night"] = game.get("night", 1) + 1
-        from phases.night import start_night
-        await start_night(context, game)
-        return
+        for target, count in tally.items():
+            if target == "none":
+                lines.append(f"• 🕊️ Hech kimga: <b>{count} ovoz</b>")
+            else:
+                try:
+                    t_uid = int(target)
+                    lines.append(f"• 👤 <b>{display_name(game, t_uid)}</b>: <b>{count} ovoz</b>")
+                except Exception:
+                    pass
 
-    accused_uid = int(top_target)
-    from phases.verdict import verdict_phase
-    await verdict_phase(context, game, accused_uid)
+        if not tally:
+            lines.append("<i>Hech kim ovoz bermadi.</i>")
+
+        from core.navigation import bot_action_keyboard
+        action_kb = bot_action_keyboard(chat_id, "💬 Botga o'tish (Amallar/Ovoz)")
+
+        try:
+            await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb, parse_mode="HTML")
+        except Exception:
+            await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=action_kb)
+
+        # AFK sleepers check and humorous shout
+        try:
+            from core.afk_penalty import handle_voting_sleepers
+            await handle_voting_sleepers(context, game)
+        except Exception as e:
+            log.warning("Could not handle voting sleepers: %s", e)
+
+        # Determine highest voted candidate
+        valid_tally = {k: v for k, v in tally.items() if k != "none"}
+        if not valid_tally:
+            # No suspect chosen, proceed to night
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🕊️ {tg_emoji('night', '🌙')} <b>Hech kim sud minbariga chiqarilmadi. Shahar yana tun quchog'iga kirdi.</b>",
+                reply_markup=action_kb,
+                parse_mode="HTML"
+            )
+            game["night"] = game.get("night", 1) + 1
+            from phases.night import start_night
+            await start_night(context, game)
+            return
+
+        sorted_targets = sorted(valid_tally.items(), key=lambda x: x[1], reverse=True)
+        top_target, top_votes = sorted_targets[0]
+
+        # Check if skip ("none") received equal or more votes than top suspect
+        none_votes = tally.get("none", 0)
+        if none_votes >= top_votes:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🕊️ {tg_emoji('night', '🌙')} <b>Ko'pchilik hech kimni sud minbariga chiqarmaslikni tanladi. Shahar yana tun quchog'iga kirdi.</b>",
+                reply_markup=action_kb,
+                parse_mode="HTML"
+            )
+            game["night"] = game.get("night", 1) + 1
+            from phases.night import start_night
+            await start_night(context, game)
+            return
+
+        # Check for tie between top suspects
+        if len(sorted_targets) > 1 and sorted_targets[1][1] == top_votes:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{tg_emoji('voting', '⚖️')} <b>Ovozlar teng keldi!</b> Shahar ikkilanib qoldi va hech kim sud minbariga chiqarilmadi.",
+                reply_markup=action_kb,
+                parse_mode="HTML"
+            )
+            game["night"] = game.get("night", 1) + 1
+            from phases.night import start_night
+            await start_night(context, game)
+            return
+
+        accused_uid = int(top_target)
+        from phases.verdict import verdict_phase
+        await verdict_phase(context, game, accused_uid)
+    finally:
+        game.pop("_resolving_voting", None)
 
 start_voting_phase = start_voting
 
