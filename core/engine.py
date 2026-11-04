@@ -2,7 +2,7 @@ import time
 import json
 import logging
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from config import ROLES
 from database.models import (
     now_iso, get_badge, change_balance, record_game_finish, resolve_afterlife_bets
@@ -17,6 +17,54 @@ lobbies: Dict[int, Dict[str, Any]] = {}
 games: Dict[int, Dict[str, Any]] = {}
 pending_last_words: Dict[int, Dict[str, Any]] = {}
 active_drops: Dict[str, Dict[str, Any]] = {}
+
+DEFAULT_DROP_EXPIRY_SECONDS = 600
+_drop_claim_lock = asyncio.Lock()
+
+def cleanup_expired_drops(expiry_seconds: int = DEFAULT_DROP_EXPIRY_SECONDS) -> int:
+    """Purge expired gold drops from memory (older than expiry_seconds)."""
+    now = time.time()
+    expired = []
+    for drop_id, d in list(active_drops.items()):
+        exp = d.get("expires_at")
+        if exp is not None:
+            if now > exp:
+                expired.append(drop_id)
+        else:
+            cat = d.get("created_at", now)
+            if cat > 1000000000 and (now - cat > expiry_seconds):
+                expired.append(drop_id)
+    for drop_id in expired:
+        active_drops.pop(drop_id, None)
+    return len(expired)
+
+async def claim_gold_drop(drop_id: str, uid: int, user_name: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """Atomically claim 1 gold from an active drop, preventing double-claims and race conditions."""
+    now = time.time()
+    async with _drop_claim_lock:
+        drop = active_drops.get(drop_id)
+        if not drop:
+            return False, "❌ Ushbu Gold tarqatish yakunlangan yoki mavjud emas.", None
+
+        exp = drop.get("expires_at")
+        if exp is not None and now > exp:
+            return False, "❌ Ushbu Gold tarqatish muddati (10 daqiqa) tugagan.", drop
+        elif exp is None:
+            cat = drop.get("created_at", now)
+            if cat > 1000000000 and (now - cat > DEFAULT_DROP_EXPIRY_SECONDS):
+                return False, "❌ Ushbu Gold tarqatish muddati (10 daqiqa) tugagan.", drop
+
+        if uid in drop.get("claimed_by", {}):
+            return False, "ℹ️ Siz ushbu tarqatishdan allaqachon 1 dona Gold olgansiz!", drop
+
+        if drop.get("remaining", 0) <= 0:
+            return False, "😔 Kech qoldingiz! Barcha Goldlar terib olindi.", drop
+
+        drop["remaining"] -= 1
+        drop.setdefault("claimed_by", {})[uid] = user_name
+
+    await change_balance(uid, "gold", 1, f"Gold Drop {drop_id}")
+    return True, "🎉 Tabriklaymiz! Siz 1 dona Gold oldingiz!", drop
 
 def get_game(chat_id: int) -> Optional[Dict[str, Any]]:
     return games.get(chat_id)

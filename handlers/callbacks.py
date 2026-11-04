@@ -161,26 +161,12 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 0. Gold Drop Claim Callback
     if data.startswith("claim_gold:"):
         drop_id = data.split(":")[1]
-        from core.engine import active_drops
-        drop = active_drops.get(drop_id)
-        if not drop:
-            await q.answer("❌ Ushbu Gold tarqatish yakunlangan yoki mavjud emas.", show_alert=True)
+        user_name = (user.full_name or user.first_name or "O'yinchi")[:40]
+        from core.engine import claim_gold_drop
+        ok, msg_text, drop = await claim_gold_drop(drop_id, uid, user_name)
+        await q.answer(msg_text, show_alert=True)
+        if not ok or not drop:
             return
-
-        if uid in drop["claimed_by"]:
-            await q.answer("ℹ️ Siz ushbu tarqatishdan allaqachon 1 dona Gold olgansiz!", show_alert=True)
-            return
-
-        if drop["remaining"] <= 0:
-            await q.answer("😔 Kech qoldingiz! Barcha Goldlar terib olindi.", show_alert=True)
-            return
-
-        # Give 1 Gold to user
-        user_name = (user.full_name or user.first_name)[:40]
-        drop["claimed_by"][uid] = user_name
-        drop["remaining"] -= 1
-        await change_balance(uid, "gold", 1, f"Gold Drop {drop_id}")
-        await q.answer("🎉 Tabriklaymiz! Siz 1 dona Gold oldingiz!", show_alert=True)
 
         rem = drop["remaining"]
         tot = drop["total"]

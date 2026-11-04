@@ -500,8 +500,10 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await change_balance(sender.id, "gold", -amount, f"Guruhga Gold Drop: {amount}")
 
-    sender_name = sender.full_name or sender.first_name or "Saxiy o'yinchi"
-    drop_id = f"drop_{int(time.time())}_{sender.id % 10000}"
+    import uuid
+    from core.engine import DEFAULT_DROP_EXPIRY_SECONDS
+    drop_id = f"drop_{uuid.uuid4().hex[:12]}"
+    now_ts = time.time()
     active_drops[drop_id] = {
         "id": drop_id,
         "chat_id": chat.id,
@@ -510,7 +512,8 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "total": amount,
         "remaining": amount,
         "claimed_by": {},
-        "created_at": time.time()
+        "created_at": now_ts,
+        "expires_at": now_ts + DEFAULT_DROP_EXPIRY_SECONDS
     }
 
     text = (
