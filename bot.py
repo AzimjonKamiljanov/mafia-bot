@@ -225,10 +225,25 @@ async def cleanup_orphaned_games(app: Application):
     except Exception as e:
         log.warning("cleanup_orphaned_games failed: %s", e)
 
+async def _periodic_drop_cleanup_task(app: Application):
+    """Background task to sweep expired gold drops every 60 seconds."""
+    from core.engine import cleanup_expired_drops
+    while True:
+        try:
+            await asyncio.sleep(60)
+            purged = cleanup_expired_drops()
+            if purged > 0:
+                log.info("Purged %d expired gold drops in periodic sweep", purged)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.debug("Error in periodic drop cleanup: %s", e)
+
 async def post_init(app: Application):
     """Initialize DB and configure Telegram Bot commands list with strict scopes."""
     await init_db()
     await cleanup_orphaned_games(app)
+    asyncio.create_task(_periodic_drop_cleanup_task(app))
     try:
         # 1. Group commands: Only group game commands
         group_commands = [

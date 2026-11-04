@@ -130,6 +130,9 @@ async def test_startup_cleanup_orphaned_games():
     chat_id = -1005554
 
     db = await get_db()
+    await db.execute("UPDATE games SET state = 'aborted' WHERE state = 'active'")
+    await db.commit()
+
     cur = await db.execute("""
         INSERT INTO games (chat_id, state, phase, data, created_at, updated_at)
         VALUES (?, 'active', 'voting', '{}', '2026-01-01', '2026-01-01')

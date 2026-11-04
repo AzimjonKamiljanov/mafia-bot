@@ -257,6 +257,7 @@ async def _lobby_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, seconds
         return
     lobby = lobbies.get(chat_id)
     if lobby and lobby.get("open") and chat_id not in games:
+        cancel_lobby_timer(lobby)
         lobbies.pop(chat_id, None)
         pinned_id = lobby.get("pinned_message_id")
         if pinned_id:

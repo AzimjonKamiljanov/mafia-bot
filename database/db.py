@@ -268,8 +268,10 @@ async def init_db():
         try:
             await db.execute(f"ALTER TABLE inventory ADD COLUMN {col} {col_def}")
             await db.commit()
-        except Exception:
-            pass
+        except aiosqlite.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                log.exception("Unexpected error while adding %s column to inventory: %s", col, e)
+                raise
 
     # Versioned migration using PRAGMA user_version
     async with db.execute("PRAGMA user_version") as cur:
@@ -293,15 +295,18 @@ async def init_db():
         await db.execute("PRAGMA user_version = 1")
         await db.commit()
 
-    # One-time migration / startup check to close stale rows stuck in state='active'
-    try:
-        await db.execute("""
-            UPDATE games
-            SET state = 'aborted', finished_at = COALESCE(updated_at, created_at)
-            WHERE state = 'active'
-        """)
-        await db.commit()
-    except Exception as e:
-        log.warning("Could not migrate stale game rows: %s", e)
+    # One-time migration to close historical stale rows stuck in state='active' (Migration v2)
+    if user_ver < 2:
+        try:
+            await db.execute("""
+                UPDATE games
+                SET state = 'aborted', finished_at = COALESCE(updated_at, created_at)
+                WHERE state = 'active'
+            """)
+            await db.execute("PRAGMA user_version = 2")
+            await db.commit()
+            log.info("Migration v2: Historical stale games marked as aborted.")
+        except Exception as e:
+            log.warning("Could not migrate historical stale games: %s", e)
 
     log.info("Database schema verification and initialization completed.")

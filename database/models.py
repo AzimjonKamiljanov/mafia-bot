@@ -337,20 +337,18 @@ async def record_game_finish(chat_id: int, winners_team: str, winning_uids: List
         VALUES (0, ?, ?, ?)
     """, (chat_id, f"{winners_team}: {','.join(str(u) for u in winning_uids)}", now))
 
-    # 2. Wins and losses stats + rewards
+    # 2. Wins and losses stats
     for uid in all_players:
         if uid in winning_uids:
-            reward = 150
             await db.execute("""
-                UPDATE users SET games = games + 1, wins = wins + 1, coin = coin + ?, updated_at = ?
+                UPDATE users SET games = games + 1, wins = wins + 1, updated_at = ?
                 WHERE user_id = ?
-            """, (reward, now, uid))
+            """, (now, uid))
         else:
-            loss_reward = 25
             await db.execute("""
-                UPDATE users SET games = games + 1, losses = losses + 1, coin = coin + ?, updated_at = ?
+                UPDATE users SET games = games + 1, losses = losses + 1, updated_at = ?
                 WHERE user_id = ?
-            """, (loss_reward, now, uid))
+            """, (now, uid))
     await db.commit()
 
 # ============================================================

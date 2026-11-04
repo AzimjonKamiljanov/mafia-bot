@@ -86,3 +86,44 @@ async def test_column_whitelisting():
     settings = await get_chat_settings(12345)
     assert settings["day_seconds"] == 20
     assert "malicious_col" not in settings
+
+@pytest.mark.asyncio
+async def test_game_finish_awards_exact_reward_no_double_spend():
+    await init_db()
+    from core.engine import finish_game
+    from unittest.mock import AsyncMock
+
+    w_uid = 88888804
+    l_uid = 88888805
+    await ensure_user(MockUser(w_uid, "Winner User", "winner_user"))
+    await ensure_user(MockUser(l_uid, "Loser User", "loser_user"))
+
+    # Set known starting balance (100 coins)
+    w_user = await get_user(w_uid)
+    await change_balance(w_uid, "coin", 100 - w_user["coin"], "Reset")
+    l_user = await get_user(l_uid)
+    await change_balance(l_uid, "coin", 100 - l_user["coin"], "Reset")
+
+    chat_id = -888888
+    game = {
+        "chat": chat_id,
+        "players": [w_uid, l_uid],
+        "names": {w_uid: "Winner User", l_uid: "Loser User"},
+        "roles": {w_uid: "Detektiv", l_uid: "Qotil"},
+        "alive": {w_uid: True, l_uid: False},
+        "phase": "night",
+        "night": 2,
+    }
+
+    mock_context = MagicMock()
+    mock_context.bot.send_message = AsyncMock()
+
+    await finish_game(mock_context, game, winners=[w_uid], winning_team="blue")
+
+    # Winner must get exactly +150 coins (100 + 150 = 250), NOT doubled to 300 or 400
+    w_final = await get_user(w_uid)
+    assert w_final["coin"] == 250, f"Winner received unexpected balance: {w_final['coin']}"
+
+    # Loser must get exactly +25 consolation coins (100 + 25 = 125)
+    l_final = await get_user(l_uid)
+    assert l_final["coin"] == 125, f"Loser received unexpected balance: {l_final['coin']}"

@@ -313,9 +313,12 @@ async def finish_game(
     except Exception as e:
         log.warning("Could not set game to finished in DB for chat %s: %s", chat_id, e)
 
-    # Award coins to winners
+    # Award coins to winners and consolation to other participants
     for uid in winners:
         await change_balance(uid, "coin", 150, "O'yin g'olibi")
+    for uid in game.get("players", []):
+        if uid not in winner_set:
+            await change_balance(uid, "coin", 25, "O'yin ishtirokchisi (tasalli)")
 
     # 1. Tunda o'ldirilganlar
     killed_lines = []
