@@ -175,3 +175,75 @@ async def test_startup_cleanup_orphaned_games():
         assert row["finished_at"] is not None
 
     mock_app.bot.send_message.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_cancel_lobby_timer_self_cancellation_guard():
+    from core.engine import cancel_lobby_timer
+    executed = False
+
+    async def fake_lobby_timer_task(lobby_dict):
+        nonlocal executed
+        cancel_lobby_timer(lobby_dict)
+        await asyncio.sleep(0.01)
+        executed = True
+
+    lobby = {}
+    task = asyncio.create_task(fake_lobby_timer_task(lobby))
+    lobby["_timer_task"] = task
+    await task
+
+    assert executed is True, "cancel_lobby_timer cancelled the currently running task!"
+    assert not task.cancelled()
+
+@pytest.mark.asyncio
+async def test_lobby_stop_unpins_pinned_message(mock_context):
+    chat_id = -1005555
+    admin_uid = 998811
+
+    mock_context.bot.unpin_chat_message = AsyncMock()
+    mock_member = MagicMock()
+    mock_member.status = "administrator"
+    mock_context.bot.get_chat_member.return_value = mock_member
+
+    timer_task = asyncio.create_task(asyncio.sleep(100))
+    lobbies[chat_id] = {
+        "open": True,
+        "_timer_task": timer_task,
+        "players": [admin_uid],
+        "pinned_message_id": 445566,
+    }
+
+    update = MagicMock()
+    update.effective_chat.id = chat_id
+    update.effective_user.id = admin_uid
+    update.callback_query = MagicMock()
+    update.callback_query.data = f"lobby_stop:{chat_id}"
+    update.callback_query.from_user.id = admin_uid
+    update.callback_query.answer = AsyncMock()
+    update.callback_query.edit_message_text = AsyncMock()
+
+    await callback_router(update, mock_context)
+
+    mock_context.bot.unpin_chat_message.assert_called_once_with(chat_id=chat_id, message_id=445566)
+    assert chat_id not in lobbies
+    assert timer_task.cancelled()
+
+@pytest.mark.asyncio
+async def test_lobby_stop_when_no_lobby_or_game(mock_context):
+    chat_id = -1005556
+    user_id = 998822
+    lobbies.pop(chat_id, None)
+    games.pop(chat_id, None)
+
+    update = MagicMock()
+    update.effective_chat.id = chat_id
+    update.effective_user.id = user_id
+    update.callback_query = MagicMock()
+    update.callback_query.data = f"lobby_stop:{chat_id}"
+    update.callback_query.from_user.id = user_id
+    update.callback_query.answer = AsyncMock()
+
+    await callback_router(update, mock_context)
+
+    update.callback_query.answer.assert_called_once()
+    assert "faol o'yin yoki lobby yo'q" in update.callback_query.answer.call_args[0][0]

@@ -20,9 +20,10 @@ pending_social_proposals: dict = {}
 async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message or update.effective_message
     chat = update.effective_chat
-    if not msg:
+    user = (msg.from_user if msg and getattr(msg, "from_user", None) else None) or update.effective_user
+    if not msg or not chat or not user:
         return
-    if chat and chat.type == "private":
+    if chat.type == "private":
         from config import BOT_USERNAME
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
@@ -36,11 +37,11 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         return
-    if not msg.reply_to_message:
+    if not msg.reply_to_message or not msg.reply_to_message.from_user:
         await msg.reply_text("💍 /para ishlatish uchun kerakli insonning xabariga Reply qiling.")
         return
 
-    requester = msg.from_user
+    requester = user
     target = msg.reply_to_message.from_user
     if not target or target.id == requester.id or target.is_bot:
         await msg.reply_text("❌ O'zingiz yoki bot bilan juftlik hosil qila olmaysiz.")
@@ -219,9 +220,10 @@ async def mypara_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message or update.effective_message
     chat = update.effective_chat
-    if not msg:
+    user = (msg.from_user if msg and getattr(msg, "from_user", None) else None) or update.effective_user
+    if not msg or not chat or not user:
         return
-    if chat and chat.type == "private":
+    if chat.type == "private":
         from config import BOT_USERNAME
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
@@ -235,10 +237,10 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         return
-    if not msg.reply_to_message:
+    if not msg.reply_to_message or not msg.reply_to_message.from_user:
         await msg.reply_text("🤝 /bro ishlatish uchun birodaringizning xabariga Reply qiling.")
         return
-    requester = msg.from_user
+    requester = user
     target = msg.reply_to_message.from_user
     if not target or target.id == requester.id or target.is_bot:
         await msg.reply_text("❌ Noto'g'ri nishon.")
@@ -416,9 +418,10 @@ async def mybro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def givegul_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message or update.effective_message
     chat = update.effective_chat
-    if not msg:
+    user = (msg.from_user if msg and getattr(msg, "from_user", None) else None) or update.effective_user
+    if not msg or not chat or not user:
         return
-    if chat and chat.type == "private":
+    if chat.type == "private":
         from config import BOT_USERNAME
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
@@ -433,16 +436,21 @@ async def givegul_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         return
-    if not msg.reply_to_message:
+    if not msg.reply_to_message or not msg.reply_to_message.from_user:
         await msg.reply_text("🌹 Gul sovg'a qilish uchun kerakli odam xabariga Reply qiling.")
         return
-    sender = msg.from_user
+    sender = user
     target = msg.reply_to_message.from_user
+    if target.id == sender.id or target.is_bot:
+        await msg.reply_text("❌ O'zingiz yoki botga gul sovg'a qila olmaysiz.")
+        return
     if not await take_item(sender.id, "rose", 1):
         await msg.reply_text("❌ Sizda gul (Rose) yo'q. Avval /shop dan xarid qiling.")
         return
     await add_item(target.id, "rose", 1)
-    await msg.reply_text(f"🌹 <b>{html.escape(sender.full_name)}</b> <b>{html.escape(target.full_name)}</b>ga gul sovg'a qildi!", parse_mode="HTML")
+    sender_name = sender.full_name or sender.first_name or "Foydalanuvchi"
+    target_name = target.full_name or target.first_name or "Foydalanuvchi"
+    await msg.reply_text(f"🌹 <b>{html.escape(sender_name)}</b> <b>{html.escape(target_name)}</b>ga gul sovg'a qildi!", parse_mode="HTML")
 
 async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -450,12 +458,14 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Har bir odam 1 donadan Gold olishi mumkin.
     """
     msg = update.message or update.effective_message
-    if not msg:
-        return
     chat = update.effective_chat
-    sender = msg.from_user
+    sender = (msg.from_user if msg and getattr(msg, "from_user", None) else None) or update.effective_user
+    if not msg or not chat or not sender:
+        return
 
-    if not chat or chat.type not in ("group", "supergroup"):
+    sender_name = sender.full_name or sender.first_name or "Foydalanuvchi"
+
+    if chat.type not in ("group", "supergroup"):
         from config import BOT_USERNAME
         send_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🪙 Balans", callback_data="menu_balance")],
@@ -491,7 +501,7 @@ async def send_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await ensure_user(sender)
 
     # Check sender's balance (Admins bypass deduction)
-    if not is_admin(sender.id, sender.username):
+    if not is_admin(sender.id, getattr(sender, "username", None)):
         user_gold = await get_balance(sender.id, "gold")
         if user_gold < amount:
             await msg.reply_text(

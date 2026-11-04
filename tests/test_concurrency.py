@@ -127,3 +127,36 @@ async def test_game_finish_awards_exact_reward_no_double_spend():
     # Loser must get exactly +25 consolation coins (100 + 25 = 125)
     l_final = await get_user(l_uid)
     assert l_final["coin"] == 125, f"Loser received unexpected balance: {l_final['coin']}"
+
+@pytest.mark.asyncio
+async def test_concurrent_clan_balance_never_negative():
+    await init_db()
+    from database.models import create_clan, change_clan_balance, get_clan, get_clan_balance
+    import random
+    uid = random.randint(700000, 799999)
+    await ensure_user(MockUser(uid, f"Clan Concurrency Leader {uid}", f"clancur_{uid}"))
+    clan_id = await create_clan(f"Concurrency Clan {uid}", "CC", uid)
+    assert clan_id is not None
+
+    # Clan starts with 500 coins.
+    # 10 concurrent tasks each trying to debit 150 coins (Total attempted: 1500, only 500 available)
+    # At most 3 tasks can succeed (3 x 150 = 450), leaving 50 coins. The remaining 7 tasks must fail.
+    results = await asyncio.gather(*(change_clan_balance(clan_id, -150) for _ in range(10)))
+
+    successes = sum(1 for r in results if r is True)
+    failures = sum(1 for r in results if r is False)
+
+    clan = await get_clan(clan_id)
+    assert clan["coins"] >= 0, f"Clan balance went negative! {clan['coins']}"
+    assert successes == 3, f"Expected 3 successes, got {successes}"
+    assert failures == 7, f"Expected 7 failures, got {failures}"
+    assert clan["coins"] == 50, f"Expected 50 coins remaining, got {clan['coins']}"
+    assert await get_clan_balance(clan_id) == 50
+
+    # Verify credit works correctly
+    assert await change_clan_balance(clan_id, 200) is True
+    assert await get_clan_balance(clan_id) == 250
+
+    # Verify non-existent clan fails gracefully
+    assert await change_clan_balance(999999999, -50) is False
+    assert await change_clan_balance(-1, 50) is False

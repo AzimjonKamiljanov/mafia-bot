@@ -38,3 +38,4 @@ htmlcov/
 *.log
 bot_runtime.log
 .DS_Store
+.agents/

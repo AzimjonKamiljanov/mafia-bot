@@ -1,3 +1,4 @@
+import time
 import json
 import logging
 from datetime import datetime, timezone, timedelta
@@ -101,25 +102,39 @@ async def change_balance(uid: int, currency: str, amount: int, note: str = "") -
     """Safely adjust coin or gold balance atomically. Admins bypass balance checks."""
     if currency not in VALID_CURRENCIES:
         return False
-    if is_admin(uid):
+    try:
+        user_id = int(uid)
+        amt = int(amount)
+    except (ValueError, TypeError):
+        return False
+
+    if is_admin(user_id):
         return True
 
     db = await get_db()
     now = now_iso()
-    # Single atomic statement: prevents negative balances and double-spending across concurrent requests
-    cursor = await db.execute(
-        f"UPDATE users SET {currency} = {currency} + ?, updated_at = ? WHERE user_id = ? AND ({currency} + ?) >= 0",
-        (amount, now, uid, amount)
-    )
-    if cursor.rowcount <= 0:
-        return False
+    try:
+        # Single atomic statement: prevents negative balances and double-spending across concurrent requests
+        cursor = await db.execute(
+            f"UPDATE users SET {currency} = {currency} + ?, updated_at = ? WHERE user_id = ? AND ({currency} + ?) >= 0",
+            (amt, now, user_id, amt)
+        )
+        if cursor.rowcount <= 0:
+            return False
 
-    await db.execute("""
-        INSERT INTO transactions (user_id, kind, amount, currency, note, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (uid, "credit" if amount >= 0 else "debit", abs(amount), currency, note, now))
-    await db.commit()
-    return True
+        await db.execute("""
+            INSERT INTO transactions (user_id, kind, amount, currency, note, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (user_id, "credit" if amt >= 0 else "debit", abs(amt), currency, note, now))
+        await db.commit()
+        return True
+    except Exception as e:
+        log.error("Failed to change balance for user %s: %s", user_id, e)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        return False
 
 async def get_inventory(uid: int) -> Dict[str, int]:
     db = await get_db()
@@ -150,25 +165,49 @@ async def add_item(uid: int, field: str, amount: int = 1) -> bool:
 
 async def take_item(uid: int, field: str, amount: int = 1) -> bool:
     """Atomically decrement inventory item count, preventing negative counts."""
-    if field not in VALID_INVENTORY_FIELDS or amount <= 0:
+    if field not in VALID_INVENTORY_FIELDS:
         return False
+    try:
+        user_id = int(uid)
+        amt = int(amount)
+    except (ValueError, TypeError):
+        return False
+
+    if amt <= 0:
+        return False
+
     db = await get_db()
     try:
         cursor = await db.execute(
             f"UPDATE inventory SET {field} = {field} - ? WHERE user_id = ? AND ({field} - ?) >= 0",
-            (amount, uid, amount)
+            (amt, user_id, amt)
         )
         if cursor.rowcount <= 0:
             return False
         await db.commit()
         return True
     except Exception as e:
-        log.error("Failed to take item %s from %s: %s", field, uid, e)
+        log.error("Failed to take item %s from %s: %s", field, user_id, e)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         return False
+
+_badge_cache: Dict[int, Tuple[str, float]] = {}
+_BADGE_CACHE_TTL: float = 60.0
+
 
 async def get_badge(uid: int) -> str:
     if is_admin(uid):
         return "👑 Bosh Admin"
+
+    now_ts = time.time()
+    if uid in _badge_cache:
+        badge_val, cached_at = _badge_cache[uid]
+        if now_ts - cached_at < _BADGE_CACHE_TTL:
+            return badge_val
+
     db = await get_db()
     now = now_iso()
     async with db.execute("""
@@ -176,14 +215,20 @@ async def get_badge(uid: int) -> str:
     """, (uid,)) as cursor:
         row = await cursor.fetchone()
     if not row:
+        _badge_cache[uid] = ("", now_ts)
         return ""
     if row["expires_at"] < now:
         await db.execute("DELETE FROM badges WHERE user_id = ?", (uid,))
         await db.commit()
+        _badge_cache[uid] = ("", now_ts)
         return ""
-    return str(row["badge_name"])
+    badge_str = str(row["badge_name"])
+    _badge_cache[uid] = (badge_str, now_ts)
+    return badge_str
+
 
 async def set_badge(uid: int, key: str, name: str, days: int = BADGE_DAYS):
+    _badge_cache.pop(uid, None)
     db = await get_db()
     expires = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
     await db.execute("""
@@ -243,7 +288,17 @@ async def set_will(uid: int, text: str):
 # ⚙️ GURUH VA CHAT SOZLAMALARI (CHAT_SETTINGS & BOT_CONFIG)
 # ============================================================
 
+_chat_settings_cache: Dict[int, Tuple[Dict[str, Any], float]] = {}
+_SETTINGS_CACHE_TTL: float = 60.0
+
+
 async def get_chat_settings(chat_id: int) -> Dict[str, Any]:
+    now_ts = time.time()
+    if chat_id in _chat_settings_cache:
+        val, cached_at = _chat_settings_cache[chat_id]
+        if now_ts - cached_at < _SETTINGS_CACHE_TTL:
+            return dict(val)
+
     db = await get_db()
     async with db.execute("SELECT * FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cursor:
         row = await cursor.fetchone()
@@ -254,7 +309,7 @@ async def get_chat_settings(chat_id: int) -> Dict[str, Any]:
             VALUES (?, 300, 60, ?, 45, 25, '[]', ?)
         """, (chat_id, DEFAULT_DAY_SECONDS, now))
         await db.commit()
-        return {
+        default_res = {
             "chat_id": chat_id,
             "lobby_seconds": 300,
             "night_seconds": 60,
@@ -263,12 +318,17 @@ async def get_chat_settings(chat_id: int) -> Dict[str, Any]:
             "verdict_seconds": 25,
             "disabled_roles": "[]"
         }
+        _chat_settings_cache[chat_id] = (dict(default_res), now_ts)
+        return default_res
+
     res = dict(row)
     if "vote_seconds" not in res:
         res["vote_seconds"] = 45
     if "verdict_seconds" not in res:
         res["verdict_seconds"] = 25
+    _chat_settings_cache[chat_id] = (dict(res), now_ts)
     return res
+
 
 async def update_chat_settings(chat_id: int, **kwargs):
     await get_chat_settings(chat_id)
@@ -281,12 +341,14 @@ async def update_chat_settings(chat_id: int, **kwargs):
         fields.append(f"{k} = ?")
         params.append(v)
     if not fields:
+        _chat_settings_cache.pop(chat_id, None)
         return
     fields.append("updated_at = ?")
     params.append(now_iso())
     params.append(chat_id)
     await db.execute(f"UPDATE chat_settings SET {', '.join(fields)} WHERE chat_id = ?", params)
     await db.commit()
+    _chat_settings_cache.pop(chat_id, None)
 
 get_group_settings = get_chat_settings
 update_group_settings = update_chat_settings
@@ -384,6 +446,57 @@ async def get_user_clan(user_id: int) -> Optional[Dict[str, Any]]:
     """, (user_id,)) as cursor:
         row = await cursor.fetchone()
         return dict(row) if row else None
+
+async def get_clan(clan_id: int) -> Optional[Dict[str, Any]]:
+    """Retrieve clan by its primary key clan_id."""
+    try:
+        cid = int(clan_id)
+    except (ValueError, TypeError):
+        return None
+    if cid <= 0:
+        return None
+
+    db = await get_db()
+    try:
+        async with db.execute("SELECT * FROM clans WHERE clan_id = ?", (cid,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+    except Exception as e:
+        log.error("Failed to get clan %s: %s", clan_id, e)
+        return None
+
+async def get_clan_balance(clan_id: int) -> int:
+    """Retrieve current clan coin treasury balance."""
+    clan = await get_clan(clan_id)
+    return int(clan.get("coins", 0)) if clan else 0
+
+async def change_clan_balance(clan_id: int, amount: int) -> bool:
+    """Atomically adjust clan treasury coins, preventing negative balance."""
+    try:
+        cid = int(clan_id)
+        amt = int(amount)
+    except (ValueError, TypeError):
+        return False
+    if cid <= 0:
+        return False
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "UPDATE clans SET coins = coins + ? WHERE clan_id = ? AND (coins + ?) >= 0",
+            (amt, cid, amt)
+        )
+        if cursor.rowcount <= 0:
+            return False
+        await db.commit()
+        return True
+    except Exception as e:
+        log.error("Failed to change clan balance for clan %s: %s", clan_id, e)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        return False
 
 # ============================================================
 # 👻 RUHLAR OLAMI TIKISHLARI (AFTERLIFE BETS)

@@ -20,14 +20,20 @@ for part in raw_admin_ids.split(","):
     if part.isdigit():
         ADMIN_IDS.add(int(part))
 
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
+raw_admin_id = os.getenv("ADMIN_ID", "0").strip()
+ADMIN_ID = int(raw_admin_id) if raw_admin_id.isdigit() else 0
 if ADMIN_ID != 0:
     ADMIN_IDS.add(ADMIN_ID)
 ADMIN_USERNAMES = set()
 
 db_env = os.getenv("DB_PATH", "").strip()
 if db_env:
-    DB_PATH = db_env if os.path.isabs(db_env) else str((BASE_DIR / db_env).resolve())
+    if db_env == ":memory:":
+        DB_PATH = ":memory:"
+    elif os.path.isabs(db_env):
+        DB_PATH = db_env
+    else:
+        DB_PATH = str((BASE_DIR / db_env).resolve())
 else:
     DB_PATH = str(BASE_DIR / "data" / "detektiv.db")
 DAY_PHOTO_PATH = str(BASE_DIR / "hayrli_kun.jpg")

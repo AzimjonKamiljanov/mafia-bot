@@ -120,16 +120,21 @@ async def settings_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Check admin in group, or global admin
     if chat.type in ("group", "supergroup"):
-        if not is_admin(user.id, user.username):
-            member = await context.bot.get_chat_member(chat.id, user.id)
-            if member.status not in ("administrator", "creator"):
-                await msg.reply_text("❌ Faqat guruh adminlari yoki Super Admin sozlamalarni o'zgartira oladi.")
+        if not is_admin(user.id, getattr(user, "username", "")):
+            try:
+                member = await context.bot.get_chat_member(chat.id, user.id)
+                if member.status not in ("administrator", "creator"):
+                    await msg.reply_text("❌ Faqat guruh adminlari yoki Super Admin sozlamalarni o'zgartira oladi.")
+                    return
+            except Exception as e:
+                log.warning("get_chat_member failed in settings_cmd for %s in chat %s: %s", user.id, chat.id, e)
+                await msg.reply_text("❌ Guruh adminlik huquqini tekshirib bo'lmadi.")
                 return
         target_chat_id = chat.id
         title = html.escape(chat.title or "Guruh")
     else:
         # In PM: if admin, check if target chat_id is passed as arg, otherwise show global default settings (chat_id=0)
-        if is_admin(user.id, user.username):
+        if is_admin(user.id, getattr(user, "username", "")):
             if context.args and len(context.args) > 0 and context.args[0].lstrip("-").isdigit():
                 target_chat_id = int(context.args[0])
                 title = f"Guruh ({target_chat_id})"

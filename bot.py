@@ -3,7 +3,8 @@ import asyncio
 from telegram.error import TelegramError
 from telegram import (
     Update, BotCommand, BotCommandScopeAllGroupChats,
-    BotCommandScopeAllPrivateChats, BotCommandScopeChat, BotCommandScopeDefault
+    BotCommandScopeAllPrivateChats, BotCommandScopeChat, BotCommandScopeDefault,
+    BotCommandScopeAllChatAdministrators
 )
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler, ChatMemberHandler, filters, ContextTypes
@@ -27,16 +28,30 @@ from core.logging_config import setup_logging
 setup_logging()
 log = logging.getLogger("detektiv.bot")
 
+# In-memory TTL cache for group user tracking to prevent redundant SQLite queries (Feature 34)
+_group_user_ttl_cache: Dict[Tuple[int, int], float] = {}
+_GROUP_USER_CACHE_TTL_SECONDS: float = 300.0
+
+
 async def track_group_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Ensure any user sending a message in a group is recorded in DB and counts as active in game."""
     chat = update.effective_chat
     user = update.effective_user
+    now = time.time()
     if user and not user.is_bot:
         try:
-            await ensure_user(user)
+            cache_key = (chat.id if chat else 0, user.id)
+            last_recorded = _group_user_ttl_cache.get(cache_key, 0.0)
+
+            # Skip redundant DB writes if recorded recently within TTL
+            if now - last_recorded >= _GROUP_USER_CACHE_TTL_SECONDS:
+                await ensure_user(user)
+                if chat and chat.type in ("group", "supergroup"):
+                    await track_group_member(chat.id, user)
+                _group_user_ttl_cache[cache_key] = now
+
+            # Count group chat participation as game activity in memory so active discussants are never marked AFK
             if chat and chat.type in ("group", "supergroup"):
-                await track_group_member(chat.id, user)
-                # Count group chat participation as game activity so active discussants are never marked AFK
                 from core.engine import games
                 game = games.get(chat.id)
                 if game and game.get("phase") in ("day", "voting", "verdict"):
@@ -78,7 +93,7 @@ async def track_chat_member_updated(update: Update, context: ContextTypes.DEFAUL
 PM_DISPATCH_TABLE = {
     ("salom", "assalom", "assalomu alaykum", "assalomualaykum", "salomlar", "hello", "hi"): salom_cmd,
     ("profil", "profile", "profilim", "mening profilim", "shaxsiy", "me"): profile_cmd,
-    ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "coin", "gold", "wallet"): balance_cmd,
+    ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "wallet"): balance_cmd,
     ("dokon", "do'kon", "shop", "magazin", "bozor"): shop_cmd,
     ("reyting", "rating", "top", "top10", "top 10", "top 15", "leaderboard"): rating_cmd,
     ("rollar", "guide", "qo'llanma", "qollanma", "yordam", "help", "qoidalar", "rules"): guide_cmd,
@@ -402,7 +417,7 @@ def create_bot_app() -> Application:
         write_timeout=30.0
     )
     bot = SafeExtBot(BOT_TOKEN, request=request)
-    app = Application.builder().bot(bot).post_init(post_init).build()
+    app = Application.builder().bot(bot).concurrent_updates(True).post_init(post_init).build()
     app.add_error_handler(global_error_handler)
 
     # Core commands

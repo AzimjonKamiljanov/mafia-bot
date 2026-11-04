@@ -27,7 +27,11 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Gold Drop Claim Callback
     if data.startswith("claim_gold:"):
-        drop_id = data.split(":")[1]
+        parts = data.split(":")
+        if len(parts) < 2:
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        drop_id = parts[1]
         user_name = (user.full_name or user.first_name or "O'yinchi")[:40]
         ok, msg_text, drop = await claim_gold_drop(drop_id, uid, user_name)
         await q.answer(msg_text, show_alert=True)
@@ -76,6 +80,9 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     # Last Words Callback (last_word:<key>:<uid>)
     if data.startswith("last_word:"):
         parts = data.split(":")
+        if len(parts) < 3 or not parts[2].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         word_key = parts[1]
         target_uid = int(parts[2])
         if uid != target_uid:
@@ -107,6 +114,9 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     # In-game item activation callback (use_item:<item_id>:<chat_id>)
     if data.startswith("use_item:"):
         parts = data.split(":")
+        if len(parts) < 3 or not parts[2].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         item_id = parts[1]
         chat_id = int(parts[2])
         game = games.get(chat_id)
@@ -228,6 +238,9 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     # Graveyard Afterlife Bet (grave_bet:<game_id>:<team>:<amount>)
     if data.startswith("grave_bet:"):
         parts = data.split(":")
+        if len(parts) < 4 or not parts[1].isdigit() or not parts[3].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         game_id = int(parts[1])
         team = parts[2]
         amount = int(parts[3])

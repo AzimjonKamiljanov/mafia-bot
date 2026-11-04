@@ -10,7 +10,7 @@ from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import ADMIN_IDS, ROLES, ROLE_ORDER, GOLD_SHOP
+from config import ADMIN_ID, ADMIN_IDS, ROLES, ROLE_ORDER, GOLD_SHOP
 from database.db import get_db
 from database.models import (
     is_admin, get_user, change_balance, set_badge, add_item,
@@ -93,7 +93,7 @@ def resolve_role_name(name_str: str) -> Optional[str]:
 
     return None
 
-async def query_gemini_ai(prompt: str) -> Optional[str]:
+async def query_gemini_ai(prompt: str, admin_id: Optional[int] = None) -> Optional[str]:
     """Calls Gemini API if GEMINI_API_KEY is configured in environment."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
@@ -101,6 +101,8 @@ async def query_gemini_ai(prompt: str) -> Optional[str]:
     try:
         import httpx
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        target_admin_id = admin_id or ADMIN_ID or (next(iter(ADMIN_IDS)) if ADMIN_IDS else None)
+        admin_ref = f" (ID: {target_admin_id})" if target_admin_id else ""
         payload = {
             "contents": [
                 {
@@ -108,7 +110,7 @@ async def query_gemini_ai(prompt: str) -> Optional[str]:
                         {
                             "text": (
                                 "Siz Telegramdagi «Detektiv Mafia» o'yin botining AI Boshqaruv Assistentisiz. "
-                                "Foydalanuvchi — Bot Super Admini (ID: 7651553630). "
+                                f"Foydalanuvchi — Bot Super Admini{admin_ref}. "
                                 "Unga qisqa, do'stona, o'zbek tilida professional javob bering va zarur bot sozlamalari buyruqlarini eslatib o'ting.\n\n"
                                 f"Admin so'rovi: {prompt}"
                             )
@@ -566,7 +568,7 @@ async def process_admin_ai_message(update: Update, context: ContextTypes.DEFAULT
         return True
 
     # 10. Generative Gemini AI query fallback if API key configured
-    ai_gen = await query_gemini_ai(raw_text)
+    ai_gen = await query_gemini_ai(raw_text, admin_id=user.id)
     if ai_gen:
         resp = (
             "🤖 <b>AI MASTER ASSISTENT:</b>\n\n"
@@ -583,9 +585,9 @@ async def process_admin_ai_message(update: Update, context: ContextTypes.DEFAULT
         "✨ <b>Siz quyidagi amallarni bir zumda bajara olasiz:</b>\n"
         "• ⏱ <code>tunni 30 qil</code> / <code>kunni 60 qil</code> / <code>ovozni 30 qil</code>\n"
         "• 🎭 <code>Sherif rolini o'chir</code> / <code>donni yoq</code> / <code>rollarni reset</code>\n"
-        "• 💰 <code>7651553630 ga 500 coin ber</code> / <code>10 gold ber</code>\n"
-        "• 🛡️ <code>7651553630 ga 3 ta himoya ber</code> / <code>pichoq ber</code>\n"
-        "• 👑 <code>7651553630 ga qirol toji ber</code> — Nishon topshirish\n"
+        f"• 💰 <code>{user.id} ga 500 coin ber</code> / <code>10 gold ber</code>\n"
+        f"• 🛡️ <code>{user.id} ga 3 ta himoya ber</code> / <code>pichoq ber</code>\n"
+        f"• 👑 <code>{user.id} ga qirol toji ber</code> — Nishon topshirish\n"
         "• 📢 <code>broadcast: Sizning xabaringiz</code> — Barcha guruhlarga e'lon\n"
         "• ⚙️ <code>set welcome_text Salom!</code> / <code>get welcome_text</code>\n"
         "• 📊 <code>statistika</code> / <code>faol o'yinlar</code> / <code>to'xtat &lt;chat_id&gt;</code>\n\n"

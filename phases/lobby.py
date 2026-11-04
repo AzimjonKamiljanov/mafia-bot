@@ -165,21 +165,22 @@ async def call_players_in_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
 async def create_lobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    if not chat or chat.type not in ("group", "supergroup"):
-        msg = update.message or update.effective_message
-        if msg:
-            from config import BOT_USERNAME
-            add_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
-                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
-            ])
-            await msg.reply_text(
-                f"{tg_emoji('game_start', '🎮')} <b>Mafia O'yini (/game)</b>\n\n"
-                "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
-                "O'yin ochish uchun botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
-                reply_markup=add_kb,
-                parse_mode="HTML"
-            )
+    msg = update.effective_message or update.message
+    if not chat or not user or not msg:
+        return
+    if chat.type not in ("group", "supergroup"):
+        from config import BOT_USERNAME
+        add_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            f"{tg_emoji('game_start', '🎮')} <b>Mafia O'yini (/game)</b>\n\n"
+            "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+            "O'yin ochish uchun botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
+            reply_markup=add_kb,
+            parse_mode="HTML"
+        )
         return
 
     chat_id = chat.id
@@ -405,15 +406,15 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         partner_text = ""
         if ROLES.get(role_name) == "red":
             other_mafia = [
-                f"{escape_md(lobby['names'].get(u, f'Oʻyinchi_{u}'))} ({player_roles.get(u)})"
+                f"{html.escape(lobby['names'].get(u, f'Oʻyinchi_{u}'))} ({html.escape(player_roles.get(u, ''))})"
                 for u in players if u != uid and ROLES.get(player_roles.get(u)) == "red"
             ]
             if other_mafia:
-                partner_text = "\n🤝 *Mafiya a'zolari:*\n• " + "\n• ".join(other_mafia)
+                partner_text = "\n🤝 <b>Mafiya a'zolari:</b>\n• " + "\n• ".join(other_mafia)
         elif partner_id:
-            p_name = escape_md(lobby["names"].get(partner_id, "Sherigingiz"))
-            p_role = player_roles.get(partner_id, "")
-            partner_text = f"\n🤝 *Sherigingiz:* {p_name} ({p_role})"
+            p_name = html.escape(lobby["names"].get(partner_id, "Sherigingiz"))
+            p_role = html.escape(player_roles.get(partner_id, ""))
+            partner_text = f"\n🤝 <b>Sherigingiz:</b> {p_name} ({p_role})"
 
         dossier_text = format_role_dossier(role_name, partner_text=partner_text)
         try:
@@ -421,12 +422,13 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
                 chat_id=uid,
                 text=dossier_text,
                 reply_markup=return_kb,
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
         except Exception as e:
-            log.warning("Could not send dossier with Markdown to %s (%s), retrying plain text", uid, e)
+            log.warning("Could not send dossier with HTML to %s (%s), retrying plain text", uid, e)
             try:
-                plain_dossier = dossier_text.replace("*", "").replace("_", "")
+                import re
+                plain_dossier = re.sub(r'<[^>]+>', '', dossier_text)
                 await context.bot.send_message(
                     chat_id=uid,
                     text=plain_dossier,

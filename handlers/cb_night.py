@@ -71,6 +71,9 @@ async def handle_night_callback(update: Update, context: ContextTypes.DEFAULT_TY
     # 1. Role Action in PM (act:<action>:<actor>)
     if data.startswith("act:"):
         parts = data.split(":")
+        if len(parts) < 3 or not parts[2].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         action = parts[1]
         actor = int(parts[2])
 
@@ -234,6 +237,9 @@ async def handle_night_callback(update: Update, context: ContextTypes.DEFAULT_TY
     # 2. Disguise selection for Firibgar
     if data.startswith("disguise:"):
         parts = data.split(":")
+        if len(parts) < 3 or not parts[1].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         actor = int(parts[1])
         chosen_role = parts[2]
 
@@ -274,6 +280,9 @@ async def handle_night_callback(update: Update, context: ContextTypes.DEFAULT_TY
     # 3. Target Selection in PM (tgt:<action>:<actor>:<target>)
     if data.startswith("tgt:"):
         parts = data.split(":")
+        if len(parts) < 4 or not parts[2].isdigit() or not parts[3].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         action = parts[1]
         actor = int(parts[2])
         target = int(parts[3])
@@ -507,8 +516,16 @@ async def handle_night_callback(update: Update, context: ContextTypes.DEFAULT_TY
     # 5. King Decision Callback (king_kill / king_forgive)
     if data.startswith("king_kill:") or data.startswith("king_forgive:"):
         parts = data.split(":")
+        if len(parts) < 3 or not parts[1].isdigit() or not parts[2].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         king_uid = int(parts[1])
         attacker_uid = int(parts[2])
+
+        if q.from_user.id != king_uid:
+            await q.answer("❌ Bu tugma siz uchun emas! Faqat Qirol hukm chiqara oladi.", show_alert=True)
+            return True
+
         game = find_game_by_user(king_uid)
         if not game:
             await q.answer("❌ O'yin topilmadi.")
@@ -516,6 +533,14 @@ async def handle_night_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         if not game.get("_waiting_king"):
             await q.answer("ℹ️ Qaror qabul qilish vaqti o'tib ketgan.", show_alert=True)
+            return True
+
+        if not game.get("alive", {}).get(king_uid, False):
+            await q.answer("💀 Halok bo'lgan Qirol qaror qabul qila olmaydi.", show_alert=True)
+            return True
+
+        if attacker_uid not in game.get("players", []) or not game.get("alive", {}).get(attacker_uid, False):
+            await q.answer("❌ Hujumchi allaqachon o'yinda yo'q yoki vafot etgan.", show_alert=True)
             return True
 
         is_kill = data.startswith("king_kill:")

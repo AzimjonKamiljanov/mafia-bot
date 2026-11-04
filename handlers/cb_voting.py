@@ -26,18 +26,32 @@ async def handle_voting_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     # 1. Day to Vote early transition
     if data.startswith("day_to_vote:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
         game = games.get(chat_id)
-        if game and game.get("phase") == "day":
-            await q.answer("🗳️ Ovoz berishga o'tilmoqda...")
-            await start_voting(context, game)
-        else:
+        if not game or game.get("phase") != "day":
             await q.answer("ℹ️ Hozir muhokama vaqti emas.", show_alert=True)
+            return True
+        if uid not in game.get("players", []):
+            await q.answer("❌ Siz bu o'yinda qatnashmayapsiz.", show_alert=True)
+            return True
+        if not game.get("alive", {}).get(uid, False):
+            await q.answer("💀 Halok bo'lganlar ovoz berishga o'tkaza olmaydi.", show_alert=True)
+            return True
+
+        await q.answer("🗳️ Ovoz berishga o'tilmoqda...")
+        await start_voting(context, game)
         return True
 
     # 2. Voting Callback (vote:<chat_id>:<target>)
     if data.startswith("vote:"):
         parts = data.split(":")
+        if len(parts) < 3 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         chat_id = int(parts[1])
         target_str = parts[2]
         game = games.get(chat_id)
@@ -110,6 +124,9 @@ async def handle_voting_callback(update: Update, context: ContextTypes.DEFAULT_T
     # 3. Verdict Callback (verdict:<chat_id>:<accused>:<kill/forgive>)
     if data.startswith("verdict:"):
         parts = data.split(":")
+        if len(parts) < 4 or not parts[1].lstrip("-").isdigit() or not parts[2].isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
         chat_id = int(parts[1])
         accused = int(parts[2])
         choice = parts[3]
@@ -166,7 +183,11 @@ async def handle_voting_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     # 4. Mayor Reveal Callback (mayor_reveal:<chat_id>)
     if data.startswith("mayor_reveal:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
         game = games.get(chat_id)
         if not game:
             await q.answer("❌ O'yin topilmadi.", show_alert=True)

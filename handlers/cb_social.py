@@ -22,6 +22,9 @@ async def handle_social_callback(update: Update, context: ContextTypes.DEFAULT_T
         return False
 
     parts = data.split(":")
+    if len(parts) < 5 or not parts[1].lstrip("-").isdigit() or not parts[2].lstrip("-").isdigit() or not parts[4].lstrip("-").isdigit():
+        await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+        return True
     is_accept = data.startswith("soc_acc:")
     req_id = int(parts[1])
     tgt_id = int(parts[2])

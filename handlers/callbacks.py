@@ -99,3 +99,9 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ):
         if await handle_voting_callback(update, context):
             return
+
+    # Fallback for unrecognized, stale, or expired callbacks
+    try:
+        await q.answer("⚠️ Ushbu tugma muddati o'tgan yoki faol emas.", show_alert=True)
+    except (TelegramError, Exception) as e:
+        log.debug("Operation suppressed in %s: %s", __name__, e)

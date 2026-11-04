@@ -89,7 +89,7 @@ async def admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• 🚪 Ochiq lobbylar: <b>{len(lobbies)} ta</b>\n\n"
         "🤖 <b>AI Boshqaruv Rejimi:</b> <i>FAOL</i>\n"
         "💡 <i>Siz botga shaxsiy xabarda istalgan buyruqni tabiiy tilda yozishingiz mumkin. "
-        "Masalan: «tun vaqtini 30 qil», «7651553630 ga 1000 coin ber», «Sherif rolini o'chir» va hokazo.</i>"
+        f"Masalan: «tun vaqtini 30 qil», «{user.id} ga 1000 coin ber», «Sherif rolini o'chir» va hokazo.</i>"
     )
 
     if msg:
@@ -271,13 +271,14 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return await handle_admin_callback(update, context)
 
     if action == "balance_info":
+        user_id_ref = user.id if user else 12345678
         text = (
             "💰 <b>BALANS VA MABLAG' BOSHQARUVI</b>\n\n"
             "Foydalanuvchilarga Coin yoki Gold berish uchun botga tabiiy tilda xabar yozishingiz mumkin:\n\n"
             "📝 <b>Misollar:</b>\n"
-            "• <code>7651553630 ga 1000 coin ber</code>\n"
-            "• <code>7651553630 ga 50 gold ber</code>\n"
-            "• <code>12345678 ga qirol toji ber</code>\n\n"
+            f"• <code>{user_id_ref} ga 1000 coin ber</code>\n"
+            f"• <code>{user_id_ref} ga 50 gold ber</code>\n"
+            f"• <code>{user_id_ref} ga qirol toji ber</code>\n\n"
             "Yoki buyruq orqali: <code>/coin 500</code> yoki <code>/gold 10</code> (reply qilib)."
         )
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Orqaga", callback_data="adm:menu")]])
@@ -319,6 +320,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return True
 
     if action == "ai_info":
+        user_id_ref = user.id if user else 12345678
         text = (
             "🤖 <b>AI MASTER BOSHQARUV TIZIMI</b>\n\n"
             "Siz super admin sifatida botga shaxsiy chatda xohlagan matnli buyruqlaringizni yozishingiz mumkin. "
@@ -326,8 +328,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             "✨ <b>Qo'llab-quvvatlanadigan so'rovlar:</b>\n"
             "• ⏱ <b>Vaqtlar:</b> «tun vaqtini 30 qil», «kun vaqti 60 bo'lsin», «ovoz berish 30 soniya»\n"
             "• 🎭 <b>Rollar:</b> «Sherif rolini o'chir», «Jokerni yoq», «barcha rollarni yoq»\n"
-            "• 💰 <b>Tangalar:</b> «7651553630 ga 500 coin ber», «falonchiga 50 gold qo'sh»\n"
-            "• 👑 <b>Nishonlar:</b> «7651553630 ga qirol toji nishonini ber»\n"
+            f"• 💰 <b>Tangalar:</b> «{user_id_ref} ga 500 coin ber», «falonchiga 50 gold qo'sh»\n"
+            f"• 👑 <b>Nishonlar:</b> «{user_id_ref} ga qirol toji nishonini ber»\n"
             "• 🎮 <b>O'yinlar:</b> «faol o'yinlar ro'yxatini ber», «o'yinni to'xtat -100123»\n"
             "• 📢 <b>E'lon:</b> «barcha guruhlarga xabar yubor: ...»\n"
             "• 📊 <b>Statistika:</b> «bot holati qanaqa», «server holati»\n\n"

@@ -18,6 +18,15 @@ games: Dict[int, Dict[str, Any]] = {}
 pending_last_words: Dict[int, Dict[str, Any]] = {}
 active_drops: Dict[str, Dict[str, Any]] = {}
 
+# Per-chat concurrency serialization locks (Feature 32)
+_chat_locks: Dict[int, asyncio.Lock] = {}
+
+def get_chat_lock(chat_id: int) -> asyncio.Lock:
+    """Returns a unique per-chat asyncio.Lock instance to prevent concurrent phase races."""
+    if chat_id not in _chat_locks:
+        _chat_locks[chat_id] = asyncio.Lock()
+    return _chat_locks[chat_id]
+
 DEFAULT_DROP_EXPIRY_SECONDS = 600
 _drop_claim_lock = asyncio.Lock()
 
@@ -104,8 +113,13 @@ def cancel_lobby_timer(lobby: Optional[Dict[str, Any]]):
     """Safely cancel any pending background timer task attached to lobby."""
     if not lobby:
         return
+    curr = None
+    try:
+        curr = asyncio.current_task()
+    except (TelegramError, Exception) as e:
+        log.debug("Operation suppressed in %s: %s", __name__, e)
     task = lobby.pop("_timer_task", None)
-    if task and not task.done():
+    if task and task is not curr and not task.done():
         task.cancel()
 
 async def abort_game(

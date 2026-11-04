@@ -104,3 +104,38 @@ async def test_group_member_tracking():
     assert 88801 in uids
     assert 88802 in uids
 
+@pytest.mark.asyncio
+async def test_clan_balance_operations():
+    await init_db()
+    from database.models import create_clan, change_clan_balance, get_clan, get_clan_balance
+    import random
+    uid = random.randint(800000, 899999)
+    await ensure_user(MockUser(uid, f"Clan Tester {uid}", f"clantester{uid}"))
+    clan_id = await create_clan(f"Test Clan Treasury {uid}", "TCT", uid)
+    assert clan_id is not None
+
+    # Clan starts with 500 coins
+    assert await get_clan_balance(clan_id) == 500
+
+    # Credit +100
+    assert await change_clan_balance(clan_id, 100) is True
+    assert await get_clan_balance(clan_id) == 600
+
+    # Debit -200
+    assert await change_clan_balance(clan_id, -200) is True
+    assert await get_clan_balance(clan_id) == 400
+
+    # Overdraft attempt (-1000 when balance is 400)
+    assert await change_clan_balance(clan_id, -1000) is False
+    assert await get_clan_balance(clan_id) == 400
+
+    # Zero amount no-op
+    assert await change_clan_balance(clan_id, 0) is True
+    assert await get_clan_balance(clan_id) == 400
+
+    # Non-existent clan
+    assert await change_clan_balance(9999999, 100) is False
+    assert await get_clan(9999999) is None
+    assert await get_clan_balance(9999999) == 0
+    assert await change_clan_balance(-1, 50) is False
+

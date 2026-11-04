@@ -15,20 +15,24 @@ log = logging.getLogger("detektiv.handlers.commands_lobby")
 async def startgame_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    msg = update.message or update.effective_message
-    if not chat or chat.type not in ("group", "supergroup"):
-        if msg:
-            add_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
-                [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
-            ])
-            await msg.reply_text(
-                "🎮 <b>O'yinni boshlash (/startgame)</b>\n\n"
-                "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
-                "Botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
-                reply_markup=add_kb,
-                parse_mode="HTML"
-            )
+    msg = update.effective_message or update.message
+    if not chat or not msg:
+        return
+    if chat.type not in ("group", "supergroup"):
+        add_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")],
+            [InlineKeyboardButton("⬅️ Bosh menyu", callback_data="menu_main")]
+        ])
+        await msg.reply_text(
+            "🎮 <b>O'yinni boshlash (/startgame)</b>\n\n"
+            "Mafia o'yini faqat <b>Telegram guruhlarida</b> o'ynaladi.\n"
+            "Botni guruhingizga qo'shing va o'sha yerda <b>/game</b> buyrug'ini yuboring!",
+            reply_markup=add_kb,
+            parse_mode="HTML"
+        )
+        return
+
+    if not user:
         return
 
     chat_id = chat.id
@@ -41,7 +45,7 @@ async def startgame_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if user.id not in lobby["players"] and not is_admin(user.id, user.username):
+    if user.id not in lobby["players"] and not is_admin(user.id, getattr(user, "username", "")):
         await context.bot.send_message(
             chat_id=chat_id,
             text="❗ O'yinni boshlash uchun avval lobbiga qo'shiling."
@@ -62,8 +66,8 @@ async def startgame_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
-    msg = update.message or update.effective_message
-    if not chat or not msg:
+    msg = update.effective_message or update.message
+    if not chat or not msg or not user:
         return
     if chat.type not in ("group", "supergroup"):
         add_kb = InlineKeyboardMarkup([
@@ -132,7 +136,7 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lobby["players"].remove(user.id)
             lobby["names"].pop(user.id, None)
             lobby["badges"].pop(user.id, None)
-            await msg.reply_text(f"🚪 *{user.full_name}* lobbyni tark etdi.", parse_mode="Markdown")
+            await msg.reply_text(f"🚪 <b>{html.escape(user.full_name)}</b> lobbyni tark etdi.", parse_mode="HTML")
             try:
                 await context.bot.edit_message_text(
                     chat_id=chat.id,

@@ -22,7 +22,11 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
     uid = user.id
 
     if data.startswith("lobby_join:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
         if chat_id in games:
             await q.answer("⚠️ Ushbu guruhda o'yin allaqachon boshlangan!", show_alert=True)
             return True
@@ -88,14 +92,22 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return True
 
     if data.startswith("lobby_call:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
         caller_name = (user.full_name or user.first_name)[:40]
         await q.answer("📢 O'yinchilar chaqirilmoqda...")
         await call_players_in_chat(context, chat_id, caller_name)
         return True
 
     if data.startswith("lobby_leave:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
         lobby = lobbies.get(chat_id)
         if lobby and uid in lobby["players"]:
             lobby["players"].remove(uid)
@@ -116,7 +128,11 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return True
 
     if data.startswith("lobby_start:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
         lobby = lobbies.get(chat_id)
         if not lobby or not lobby.get("open"):
             await q.answer("❌ Lobby yopilgan.", show_alert=True)
@@ -132,7 +148,14 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return True
 
     if data.startswith("lobby_stop:"):
-        chat_id = int(data.split(":")[1])
+        parts = data.split(":")
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await q.answer("❌ Noto'g'ri so'rov formati.", show_alert=True)
+            return True
+        chat_id = int(parts[1])
+        if chat_id not in games and chat_id not in lobbies:
+            await q.answer("ℹ️ Hozirda ushbu guruhda faol o'yin yoki lobby yo'q.", show_alert=True)
+            return True
         if not is_admin(uid):
             try:
                 member = await context.bot.get_chat_member(chat_id, uid)
@@ -143,7 +166,14 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 log.warning("get_chat_member check failed on lobby_stop for %s in chat %s: %s", uid, chat_id, e)
                 await q.answer("❌ Guruh adminlik huquqini tekshirib bo'lmadi. Ruxsat berilmadi.", show_alert=True)
                 return True
-        abort_lobby(chat_id)
+        lobby = abort_lobby(chat_id)
+        if lobby:
+            pinned_id = lobby.get("pinned_message_id")
+            if pinned_id:
+                try:
+                    await context.bot.unpin_chat_message(chat_id=chat_id, message_id=pinned_id)
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
         await abort_game(chat_id)
         await q.answer("🛑 To'xtatildi.")
         try:

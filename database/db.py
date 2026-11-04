@@ -11,9 +11,10 @@ async def get_db() -> aiosqlite.Connection:
     """Return a shared or new aiosqlite connection with Row factory configured."""
     global _db_connection
     if _db_connection is None:
-        db_dir = os.path.dirname(os.path.abspath(DB_PATH))
-        if db_dir:
-            os.makedirs(db_dir, exist_ok=True)
+        if DB_PATH != ":memory:":
+            db_dir = os.path.dirname(os.path.abspath(DB_PATH))
+            if db_dir:
+                os.makedirs(db_dir, exist_ok=True)
         _db_connection = await aiosqlite.connect(DB_PATH, timeout=30.0)
         _db_connection.row_factory = aiosqlite.Row
         await _db_connection.execute("PRAGMA journal_mode=WAL")
