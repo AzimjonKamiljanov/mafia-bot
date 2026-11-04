@@ -724,10 +724,10 @@ async def test_admin_privileges_and_badge():
     from database.models import is_admin, get_balance, get_badge, change_balance
     await init_db()
 
-    # Admin IDs check
+    # Admin IDs check (strictly numeric ID, usernames not authorized)
     assert is_admin(8048940366) is True
     assert is_admin(7651553630) is True
-    assert is_admin(999999999, "rasuljonovv_a") is True
+    assert is_admin(999999999, "rasuljonovv_a") is False
     assert is_admin(12345, "other_user") is False
 
     # Infinite balances & badge

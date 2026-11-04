@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
-from config import ADMIN_ID, ADMIN_IDS, ADMIN_USERNAMES, BADGE_DAYS, DEFAULT_DAY_SECONDS
+from config import ADMIN_ID, ADMIN_IDS, BADGE_DAYS, DEFAULT_DAY_SECONDS
 from .db import get_db
 
 log = logging.getLogger("detektiv.models")
@@ -11,13 +11,12 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def is_admin(user_id: int, username: str = "") -> bool:
-    if user_id in ADMIN_IDS:
-        return True
-    if ADMIN_ID != 0 and user_id == ADMIN_ID:
-        return True
-    if username and username.lower().lstrip("@") in ADMIN_USERNAMES:
-        return True
-    return False
+    """Authorize admins strictly by numeric user ID."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        return False
+    return uid in ADMIN_IDS or (ADMIN_ID != 0 and uid == ADMIN_ID)
 
 async def ensure_user(user) -> Dict[str, Any]:
     """Ensure user exists in users table and inventory is prepared."""

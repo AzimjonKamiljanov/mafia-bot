@@ -1,3 +1,12 @@
+import os
+
+os.environ.setdefault("BOT_TOKEN", "123456789:MOCK_TEST_BOT_TOKEN")
+os.environ.setdefault("ADMIN_IDS", "8048940366,7651553630")
+os.environ.setdefault(
+    "DB_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "detektiv.db"),
+)
+
 import pytest_asyncio
 import asyncio
 from database.db import close_db

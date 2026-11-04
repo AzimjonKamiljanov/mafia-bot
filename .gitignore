@@ -8,6 +8,27 @@ env/
 venv/
 ENV/
 
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Databases & Backups
+*.db
+*.db-shm
+*.db-wal
+*.bak
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.db-shm
+data/*.db-wal
+!data/.gitkeep
+
+# Archives
+*.zip
+mafia_bot_server.zip
+
 # Testing & Cache
 .pytest_cache/
 .coverage
@@ -17,7 +38,3 @@ htmlcov/
 *.log
 bot_runtime.log
 .DS_Store
-
-# SQLite WAL and SHM
-detektiv.db-shm
-detektiv.db-wal

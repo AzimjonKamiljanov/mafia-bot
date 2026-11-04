@@ -40,7 +40,7 @@ git push -u origin main
    - **Instance type:** **Free (Eco)** (tanlang).
    - **Port:** `8000` (Path: `/`).
 5. **Environment variables (Atrof-muhit o'zgaruvchilari):**
-   - `BOT_TOKEN`: `8821673168:AAEz7S9Y19Gy_amoReQVQFxkoDAo9ilsnG0`
+   - `BOT_TOKEN`: `SIZNING_BOT_TOKENINGIZ`
    - `ADMIN_ID`: `7651553630`
 6. Pastdagi yashil **"Deploy"** tugmasini bosing!
 

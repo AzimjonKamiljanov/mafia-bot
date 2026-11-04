@@ -5,18 +5,31 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8821673168:AAEz7S9Y19Gy_amoReQVQFxkoDAo9ilsnG0")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+if not BOT_TOKEN:
+    raise ValueError(
+        "BOT_TOKEN is missing or empty. Please set BOT_TOKEN in your environment or .env file."
+    )
+
 BOT_USERNAME = os.getenv("BOT_USERNAME", "Detektivmj_bot")
+
+raw_admin_ids = os.getenv("ADMIN_IDS", "")
+ADMIN_IDS = set()
+for part in raw_admin_ids.split(","):
+    part = part.strip()
+    if part.isdigit():
+        ADMIN_IDS.add(int(part))
+
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
-ADMIN_IDS = {
-    8048940366,  # Egasi / Asoschi
-    7651553630,  # @rasuljonovv_a
-}
 if ADMIN_ID != 0:
     ADMIN_IDS.add(ADMIN_ID)
-ADMIN_USERNAMES = {"rasuljonovv_a", "kamiljanovazimjon"}
+ADMIN_USERNAMES = set()
 
-DB_PATH = str(BASE_DIR / "detektiv.db")
+db_env = os.getenv("DB_PATH", "").strip()
+if db_env:
+    DB_PATH = db_env if os.path.isabs(db_env) else str((BASE_DIR / db_env).resolve())
+else:
+    DB_PATH = str(BASE_DIR / "data" / "detektiv.db")
 DAY_PHOTO_PATH = str(BASE_DIR / "hayrli_kun.jpg")
 NIGHT_PHOTO_PATH = str(BASE_DIR / "osuda_tun.jpg")
 
