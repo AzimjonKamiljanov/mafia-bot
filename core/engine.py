@@ -60,6 +60,57 @@ def cancel_lobby_timer(lobby: Optional[Dict[str, Any]]):
     if task and not task.done():
         task.cancel()
 
+async def abort_game(
+    chat_id: int,
+    reason: str = "O'yin to'xtatildi.",
+    context: Optional[Any] = None,
+    notify_chat: bool = False
+) -> bool:
+    """Safely abort and clean up an active game, cancelling timers and persisting aborted status to DB."""
+    game = games.pop(chat_id, None)
+    now = now_iso()
+    db = await get_db()
+    if game:
+        cancel_game_timer(game)
+        game["phase"] = "aborted"
+        db_id = game.get("_db_id")
+        if db_id:
+            await db.execute("""
+                UPDATE games SET state = 'aborted', phase = 'aborted', finished_at = ?, updated_at = ?
+                WHERE game_id = ?
+            """, (now, now, db_id))
+        else:
+            await db.execute("""
+                UPDATE games SET state = 'aborted', phase = 'aborted', finished_at = ?, updated_at = ?
+                WHERE chat_id = ? AND state = 'active'
+            """, (now, now, chat_id))
+        await db.commit()
+    else:
+        # Also ensure any dangling active rows in DB for this chat are aborted
+        await db.execute("""
+            UPDATE games SET state = 'aborted', phase = 'aborted', finished_at = ?, updated_at = ?
+            WHERE chat_id = ? AND state = 'active'
+        """, (now, now, chat_id))
+        await db.commit()
+
+    if notify_chat and context:
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🛑 <b>{reason}</b>",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            log.warning("Could not send abort notification to chat %s: %s", chat_id, e)
+    return game is not None
+
+def abort_lobby(chat_id: int) -> Optional[Dict[str, Any]]:
+    """Safely cancel lobby timer and remove from lobbies."""
+    lobby = lobbies.pop(chat_id, None)
+    if lobby:
+        cancel_lobby_timer(lobby)
+    return lobby
+
 def display_name(game: Dict[str, Any], uid: int) -> str:
     """Format player name with Telegram Premium, Admin Crown, and shop badges."""
     if not isinstance(game, dict):
@@ -199,6 +250,24 @@ async def finish_game(
     await record_game_finish(chat_id, winning_team if not joker else "joker", list(winners), game.get("players", []))
     if db_id:
         await resolve_afterlife_bets(db_id, winning_team if not joker else "solo")
+
+    # Persist game state as finished in games table
+    try:
+        db = await get_db()
+        now = now_iso()
+        if db_id:
+            await db.execute("""
+                UPDATE games SET state = 'finished', phase = 'finished', finished_at = ?, updated_at = ?
+                WHERE game_id = ?
+            """, (now, now, db_id))
+        else:
+            await db.execute("""
+                UPDATE games SET state = 'finished', phase = 'finished', finished_at = ?, updated_at = ?
+                WHERE chat_id = ? AND state = 'active'
+            """, (now, now, chat_id))
+        await db.commit()
+    except Exception as e:
+        log.warning("Could not set game to finished in DB for chat %s: %s", chat_id, e)
 
     # Award coins to winners
     for uid in winners:

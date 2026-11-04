@@ -10,7 +10,10 @@ from database.models import (
     is_admin, get_user, change_balance, get_badge, set_badge,
     get_all_bot_configs, set_bot_config
 )
-from core.engine import games, lobbies, cancel_game_timer, cancel_lobby_timer
+from core.engine import (
+    games, lobbies, cancel_game_timer, cancel_lobby_timer,
+    abort_game, abort_lobby
+)
 from core.visuals import anim_emoji
 
 log = logging.getLogger("detektiv.handlers.admin_panel")
@@ -252,17 +255,14 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "kill":
         target_chat = int(parts[2])
-        g = games.pop(target_chat, None)
-        if g:
-            cancel_game_timer(g)
-            try:
-                await context.bot.send_message(
-                    chat_id=target_chat,
-                    text="🛑 <b>O'yin Super Admin tomonidan majburiy to'xtatildi.</b>",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
+        abort_lobby(target_chat)
+        was_active = await abort_game(
+            target_chat,
+            reason="O'yin Super Admin tomonidan majburiy to'xtatildi.",
+            context=context,
+            notify_chat=True
+        )
+        if was_active:
             await q.answer(f"O'yin ({target_chat}) to'xtatildi!", show_alert=True)
         else:
             await q.answer("O'yin allaqachon tugagan.", show_alert=True)

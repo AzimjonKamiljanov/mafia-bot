@@ -282,9 +282,43 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
             parse_mode="HTML"
         )
 
+async def cleanup_orphaned_games(app: Application):
+    """Mark any orphaned active game rows as aborted and notify affected group chats."""
+    try:
+        from database.db import get_db
+        from database.models import now_iso
+        db = await get_db()
+        now = now_iso()
+        async with db.execute("SELECT DISTINCT chat_id FROM games WHERE state = 'active'") as cur:
+            rows = await cur.fetchall()
+            active_chat_ids = [r["chat_id"] for r in rows]
+
+        if active_chat_ids:
+            log.info("Found %d orphaned active games on startup; marking aborted...", len(active_chat_ids))
+            await db.execute("""
+                UPDATE games
+                SET state = 'aborted', phase = 'aborted', finished_at = ?, updated_at = ?
+                WHERE state = 'active'
+            """, (now, now))
+            await db.commit()
+
+            for cid in active_chat_ids:
+                try:
+                    await app.bot.send_message(
+                        chat_id=cid,
+                        text="🛑 <b>Bot qayta ishga tushirildi.</b>\n"
+                             "Avvalgi to'xtatilgan o'yin bekor qilindi. Yangi o'yin boshlash uchun /game yoki /start bosing.",
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    log.debug("Could not notify chat %s of restart abort: %s", cid, e)
+    except Exception as e:
+        log.warning("cleanup_orphaned_games failed: %s", e)
+
 async def post_init(app: Application):
     """Initialize DB and configure Telegram Bot commands list with strict scopes."""
     await init_db()
+    await cleanup_orphaned_games(app)
     try:
         # 1. Group commands: Only group game commands
         group_commands = [

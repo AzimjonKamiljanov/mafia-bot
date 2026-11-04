@@ -238,5 +238,15 @@ async def init_db():
             except Exception:
                 pass
 
-    await db.commit()
+    # One-time migration / startup check to close stale rows stuck in state='active'
+    try:
+        await db.execute("""
+            UPDATE games
+            SET state = 'aborted', finished_at = COALESCE(updated_at, created_at)
+            WHERE state = 'active'
+        """)
+        await db.commit()
+    except Exception as e:
+        log.warning("Could not migrate stale game rows: %s", e)
+
     log.info("Database schema verification and initialization completed.")

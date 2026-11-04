@@ -11,7 +11,7 @@ from database.models import (
 )
 from core.engine import (
     games, lobbies, find_game_by_user, find_lobby_by_user, display_name,
-    cancel_game_timer, cancel_lobby_timer, save_runtime
+    cancel_game_timer, cancel_lobby_timer, save_runtime, abort_game, abort_lobby
 )
 from phases.lobby import create_lobby, lobby_text, lobby_keyboard
 from core.will import save_player_will, format_will_announcement
@@ -732,25 +732,28 @@ async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("ℹ️ Hozirda ushbu guruhda faol o'yin yoki lobby yo'q.")
         return
 
-    # Check admin privileges
+    # Check admin privileges (Fail closed on error)
     if not is_admin(user.id):
-        member = await context.bot.get_chat_member(chat_id, user.id)
-        if member.status not in ("administrator", "creator"):
-            await msg.reply_text("❌ Faqat guruh admini o'yinni to'xtata oladi.")
+        try:
+            member = await context.bot.get_chat_member(chat_id, user.id)
+            if member.status not in ("administrator", "creator"):
+                await msg.reply_text("❌ Faqat guruh admini o'yinni to'xtata oladi.")
+                return
+        except Exception as e:
+            log.warning("get_chat_member failed on stop_cmd for %s in chat %s: %s", user.id, chat_id, e)
+            await msg.reply_text("❌ Guruh adminlik huquqini tekshirib bo'lmadi. Amal bekor qilindi.")
             return
 
-    lobby = lobbies.pop(chat_id, None)
+    lobby = abort_lobby(chat_id)
     if lobby:
-        cancel_lobby_timer(lobby)
         pinned_id = lobby.get("pinned_message_id")
         if pinned_id:
             try:
                 await context.bot.unpin_chat_message(chat_id=chat_id, message_id=pinned_id)
             except Exception:
                 pass
-    game = games.pop(chat_id, None)
-    if game:
-        cancel_game_timer(game)
+
+    await abort_game(chat_id)
     await msg.reply_text("🛑 O'yin yoki lobby ma'mur tomonidan to'xtatildi.")
 
 async def reveal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):

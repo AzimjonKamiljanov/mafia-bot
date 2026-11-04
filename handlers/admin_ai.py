@@ -14,7 +14,10 @@ from database.models import (
     set_bot_config, get_bot_config, get_all_bot_configs,
     update_chat_settings, now_iso
 )
-from core.engine import games, lobbies, cancel_game_timer
+from core.engine import (
+    games, lobbies, cancel_game_timer,
+    abort_game, abort_lobby
+)
 
 log = logging.getLogger("detektiv.handlers.admin_ai")
 
@@ -413,12 +416,11 @@ async def process_admin_ai_message(update: Update, context: ContextTypes.DEFAULT
     if text.startswith(("to'xtat", "toxtat", "stop")):
         if "barcha" in text or "hammasi" in text or "all" in text:
             stopped = 0
-            for cid, g in list(games.items()):
-                cancel_game_timer(g)
-                games.pop(cid, None)
+            for cid in list(games.keys()):
+                await abort_game(cid)
                 stopped += 1
-            for cid, lob in list(lobbies.items()):
-                lobbies.pop(cid, None)
+            for cid in list(lobbies.keys()):
+                abort_lobby(cid)
                 stopped += 1
             await msg.reply_text(f"🛑 Barcha ({stopped} ta) faol o'yinlar va lobbylar to'xtatildi.")
             return True
@@ -426,14 +428,14 @@ async def process_admin_ai_message(update: Update, context: ContextTypes.DEFAULT
         cid_match = re.search(r'(-?\d{7,15})', text)
         if cid_match:
             target_chat = int(cid_match.group(1))
-            g = games.pop(target_chat, None)
-            lob = lobbies.pop(target_chat, None)
-            if g:
-                cancel_game_timer(g)
-                try:
-                    await context.bot.send_message(chat_id=target_chat, text="🛑 O'yin Master Admin tomonidan to'xtatildi.")
-                except Exception:
-                    pass
+            lob = abort_lobby(target_chat)
+            was_active = await abort_game(
+                target_chat,
+                reason="O'yin Master Admin tomonidan to'xtatildi.",
+                context=context,
+                notify_chat=True
+            )
+            if was_active:
                 await msg.reply_text(f"✅ O'yin ({target_chat}) to'xtatildi.")
             elif lob:
                 await msg.reply_text(f"✅ Lobby ({target_chat}) to'xtatildi.")

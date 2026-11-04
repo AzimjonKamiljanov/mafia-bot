@@ -8,7 +8,8 @@ from database.models import (
     ensure_user, get_user, change_balance, add_item, get_badge, is_admin, record_afterlife_bet, get_will
 )
 from core.engine import (
-    games, lobbies, find_game_by_user, display_name, save_runtime
+    games, lobbies, find_game_by_user, display_name, save_runtime,
+    abort_game, abort_lobby, cancel_game_timer, cancel_lobby_timer
 )
 from core.graveyard import graveyard_menu_keyboard, graveyard_status_text
 from phases.lobby import start_game, lobby_text, lobby_keyboard
@@ -465,10 +466,12 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if member.status not in ("administrator", "creator"):
                     await q.answer("❌ Faqat guruh adminlari to'xtata oladi.", show_alert=True)
                     return
-            except Exception:
-                pass
-        lobbies.pop(chat_id, None)
-        games.pop(chat_id, None)
+            except Exception as e:
+                log.warning("get_chat_member check failed on lobby_stop for %s in chat %s: %s", uid, chat_id, e)
+                await q.answer("❌ Guruh adminlik huquqini tekshirib bo'lmadi. Ruxsat berilmadi.", show_alert=True)
+                return
+        abort_lobby(chat_id)
+        await abort_game(chat_id)
         await q.answer("🛑 To'xtatildi.")
         try:
             await q.edit_message_text("🛑 <b>Lobby yoki o'yin to'xtatildi.</b>", parse_mode="HTML")
