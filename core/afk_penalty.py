@@ -1,3 +1,4 @@
+from telegram.error import TelegramError
 import html
 import logging
 from typing import Dict, Any, List
@@ -72,8 +73,8 @@ async def handle_night_sleepers(context: ContextTypes.DEFAULT_TYPE, game: Dict[s
         name = display_name(game, u)
         try:
             await change_balance(u, "coin", -20, "Ketma-ket 3 tun uxlab qolish jarimasi")
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
         shout_msg = (
             "💤 <b>UXLASHGA JAZO!</b>\n\n"

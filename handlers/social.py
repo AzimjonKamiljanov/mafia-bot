@@ -1,6 +1,7 @@
 import time
 import html
 import logging
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -93,16 +94,16 @@ async def para_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text=f"💍 <b>{html.escape(target.full_name)}</b> bilan juftlik (Para) muvaffaqiyatli bog'landi!",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             try:
                 await context.bot.send_message(
                     chat_id=target.id,
                     text=f"💍 <b>{html.escape(requester.full_name)}</b> bilan juftlik (Para) tasdiqlandi!",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         # 1st time: register pending proposal in memory and database, then send PM to target
@@ -291,16 +292,16 @@ async def bro_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text=f"🤝 <b>{html.escape(target.full_name)}</b> bilan birodarlik (Bro) rishtasi muvaffaqiyatli bog'landi!",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             try:
                 await context.bot.send_message(
                     chat_id=target.id,
                     text=f"🤝 <b>{html.escape(requester.full_name)}</b> bilan birodarlik (Bro) tasdiqlandi!",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         # 1st time: register pending proposal in memory and database, then send PM to target

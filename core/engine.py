@@ -91,8 +91,8 @@ def cancel_game_timer(game: Optional[Dict[str, Any]]):
     curr = None
     try:
         curr = asyncio.current_task()
-    except Exception:
-        pass
+    except (TelegramError, Exception) as e:
+        log.debug("Operation suppressed in %s: %s", __name__, e)
     task = game.pop("_timer_task", None)
     if task and task is not curr and not task.done():
         task.cancel()
@@ -275,6 +275,7 @@ async def finish_game(
 ):
     """Cleanly finalize game, broadcast results, award coins, and update database."""
     import sys
+    from telegram.error import TelegramError
     from telegram import InlineKeyboardMarkup, InlineKeyboardButton
     from config import BOT_USERNAME
     from roles.base import format_role_display

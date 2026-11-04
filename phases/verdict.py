@@ -2,6 +2,7 @@ import asyncio
 import random
 import logging
 from typing import Dict, Any, List
+from telegram.error import TelegramError
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -168,8 +169,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                         reply_markup=verdict_res_kb,
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
         if saved_by_shield:
             lines.append(f"\n{tg_emoji('don', '👑')} <b>HUKMDAN HIMOYA ISHLADI!</b>")
@@ -181,8 +182,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                     reply_markup=verdict_res_kb,
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             try:
                 await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), reply_markup=verdict_res_kb, parse_mode="HTML")
             except Exception:
@@ -238,8 +239,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                             reply_markup=verdict_res_kb,
                             parse_mode="HTML"
                         )
-                    except Exception:
-                        pass
+                    except (TelegramError, Exception) as e:
+                        log.debug("Operation suppressed in %s: %s", __name__, e)
 
         # Execute accused
         game["alive"][accused_uid] = False
@@ -274,8 +275,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                     reply_markup=verdict_res_kb,
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
         # Check promotions if Detective or Boss died
         day_deaths = [u for u in [accused_uid, kamikadze_victim, qasoskor_victim, knife_victim] if u and not game["alive"].get(u, True)]
@@ -292,8 +293,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                                 reply_markup=return_to_group_keyboard(game),
                                 parse_mode="HTML"
                             )
-                        except Exception:
-                            pass
+                        except (TelegramError, Exception) as e:
+                            log.debug("Operation suppressed in %s: %s", __name__, e)
             elif game["roles"].get(d_uid) == "Boshliq":
                 for p_uid, p_role in game.get("roles", {}).items():
                     if p_role == "Qotil" and game["alive"].get(p_uid, False):
@@ -305,8 +306,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                                 reply_markup=return_to_group_keyboard(game),
                                 parse_mode="HTML"
                             )
-                        except Exception:
-                            pass
+                        except (TelegramError, Exception) as e:
+                            log.debug("Operation suppressed in %s: %s", __name__, e)
 
         # Send Graveyard card to executed player
         try:
@@ -316,8 +317,8 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
                 reply_markup=graveyard_menu_keyboard(game.get("_db_id", 0), group_link=game.get("group_link")),
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
         # Prompt Last Words (O'limidan oldingi so'nggi gapi)
         try:

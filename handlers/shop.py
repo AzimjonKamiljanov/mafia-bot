@@ -1,4 +1,5 @@
 import logging
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -149,8 +150,8 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await q.answer(f"🟢 {target_badge['badge_name']} faollashtirildi!", show_alert=True)
             try:
                 await render_shop_inventory(q, uid)
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
     if data == "item:off":
@@ -158,8 +159,8 @@ async def shop_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await q.answer("⚪ Faol belgi olib tashlandi.", show_alert=True)
         try:
             await render_shop_inventory(q, uid)
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
 async def render_shop_inventory(q, uid: int):

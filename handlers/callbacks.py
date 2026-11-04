@@ -1,6 +1,7 @@
 import logging
 import html
 import time
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -65,8 +66,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_rate_limited(uid, action="cb", max_rate=12, window_seconds=2.0):
         try:
             await q.answer("⏳ Iltimos, tugmalarni juda tez bosmang!", show_alert=False)
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
     # Settings callbacks
@@ -96,8 +97,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.answer("❌ Ushbu so'rov eskirgan yoki topilmadi.", show_alert=True)
             try:
                 await q.edit_message_text("⚠️ Ushbu operatsiya bekor qilingan yoki muddati o'tgan.")
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         if grant["admin_id"] != uid:
@@ -192,8 +193,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text=f"💔 <b>{html.escape(tgt_name)}</b> sizning {kind_title} taklifingizni rad etdi.",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         # Check existing partners
@@ -228,8 +229,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"💍 <b>{html.escape(tgt_name)}</b> sizning {kind_title} taklifingizni qabul qildi!",
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
         # Announce in group
         try:
@@ -240,8 +241,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"{icon} <b>{html.escape(req_name)}</b> va <b>{html.escape(tgt_name)}</b> muvaffaqiyatli {term} bo'ldilar!",
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
     # 0. Gold Drop Claim Callback
@@ -285,8 +286,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             await q.edit_message_text(text=new_text, reply_markup=kb, parse_mode="HTML")
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
     if data == "drop_finished":
@@ -313,8 +314,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
         else:
             await q.answer("ℹ️ Faol o'yin topilmadi.")
         return
@@ -357,8 +358,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "🗳️ <b>Qo'shimcha ovoz faollashtirildi!</b>\nUshbu ovoz berishda sizning ovozingiz 2 barobar hisoblanadi.\n⚠️ <i>Eslatma: Har bir o'yinda faqat 1 marta ishlatish mumkin.</i>",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         success, msg = await consume_game_item(game, uid, item_id)
@@ -558,8 +559,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("🛑 To'xtatildi.")
         try:
             await q.edit_message_text("🛑 <b>Lobby yoki o'yin to'xtatildi.</b>", parse_mode="HTML")
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
     # 4. Role Action in PM (act:<action>:<actor>)
@@ -599,8 +600,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             if check_night_completed(game):
                 await resolve_night(context, game)
             return
@@ -639,8 +640,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         if action == "joker_laugh":
@@ -654,8 +655,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
         if action == "medium":
@@ -855,8 +856,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 reply_markup=return_to_group_keyboard(game),
                                 parse_mode="HTML"
                             )
-                        except Exception:
-                            pass
+                        except (TelegramError, Exception) as e:
+                            log.debug("Operation suppressed in %s: %s", __name__, e)
 
                 if fake_doc_used:
                     is_red = False
@@ -867,8 +868,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             reply_markup=return_to_group_keyboard(game),
                             parse_mode="HTML"
                         )
-                    except Exception:
-                        pass
+                    except (TelegramError, Exception) as e:
+                        log.debug("Operation suppressed in %s: %s", __name__, e)
             team_str = f"{tg_emoji('mafia_team', '🔴')} <b>QIZIL JAMOA (MAFIA)</b>" if is_red else f"{tg_emoji('civilian_team', '🔵')} <b>QIZIL EMAS (TINCH FUQARO)</b>"
             await q.message.reply_text(
                 f"{tg_emoji('sheriff', '👮‍♂️')} <b>SHERIF TEKSHIRUVI:</b>\n\n👤 {html.escape(tgt_name)} — {team_str}",
@@ -943,16 +944,16 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         text=f"🎭 *Ijaraga olingan rol:* {tgt_role}\nAmalni tanlang:",
                         reply_markup=kb
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
             try:
                 await context.bot.send_message(
                     chat_id=target,
                     text="💰 *Boy sizning rolingizni 1 tunga ijaraga oldi va sizga 50 Coin to'ladi!*",
                     reply_markup=return_to_group_keyboard(game)
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             record_player_activity(game, actor)
             await broadcast_role_action(context, game, actor, "boy")
             return
@@ -967,8 +968,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text="🛒 *Savdogar sizga bepul tungi himoya qalqonini (Protection) sovg'a qildi!*",
                     reply_markup=return_to_group_keyboard(game)
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             await q.edit_message_text(
                 f"🛒 *{tgt_name}*ga bepul tungi himoya qalqoni (Protection) taqdim etildi!\n\nEndi guruhga qaytib muhokamani davom ettirishingiz mumkin.",
                 reply_markup=return_to_group_keyboard(game),
@@ -1065,8 +1066,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
         try:
             await context.bot.send_message(
@@ -1074,8 +1075,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"{tg_emoji('voting', '🧊')} <b>{html.escape(voter_name)}</b> gumon qildi: <b>{html.escape(target_name)}</b>",
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
         alive_count = sum(1 for v in game["alive"].values() if v)
         if len(game.get("votes", {})) >= alive_count:
@@ -1121,8 +1122,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
         try:
             await context.bot.send_message(
@@ -1130,8 +1131,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"{tg_emoji('voting', '⚖️')} <b>{html.escape(voter_name)}</b> hukm chiqardi: <b>{choice_str}</b>",
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
         # Accused doesn't vote, so required count is alive_count - 1
         alive_count = sum(1 for v in game["alive"].values() if v)
@@ -1162,8 +1163,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
         else:
             try:
                 await q.edit_message_text(
@@ -1171,8 +1172,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="Markdown"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
         await handle_king_decision(context, game, king_uid, attacker_uid, is_kill=is_kill, is_timeout=False)
         return
@@ -1226,8 +1227,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     text=graveyard_status_text(game, uid),
                     reply_markup=graveyard_menu_keyboard(game.get("_db_id", 0), group_link=game.get("group_link"))
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
         else:
             await q.answer("ℹ️ Faol o'yin topilmadi.", show_alert=True)
         return

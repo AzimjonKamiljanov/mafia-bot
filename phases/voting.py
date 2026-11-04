@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections import Counter
 from typing import Dict, Any, Optional
+from telegram.error import TelegramError
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -126,8 +127,8 @@ async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                 try:
                     t_uid = int(target)
                     lines.append(f"• 👤 <b>{display_name(game, t_uid)}</b>: <b>{count} ovoz</b>")
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
         if not tally:
             lines.append("<i>Hech kim ovoz bermadi.</i>")

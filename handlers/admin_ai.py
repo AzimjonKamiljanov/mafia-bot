@@ -6,6 +6,7 @@ import uuid
 import time
 import logging
 from typing import Optional, Dict, Any, Tuple
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -168,8 +169,8 @@ async def process_admin_ai_message(update: Update, context: ContextTypes.DEFAULT
             try:
                 await context.bot.send_message(chat_id=cid, text=broadcast_text, parse_mode="HTML")
                 sent_count += 1
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
         resp = (
             "👑 <b>AI MASTER: GLOBAL XABAR YUBORILDI</b>\n\n"

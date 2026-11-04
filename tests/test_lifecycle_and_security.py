@@ -53,6 +53,29 @@ async def test_lobby_stop_fails_closed_on_error(mock_context):
     games.pop(chat_id, None)
 
 @pytest.mark.asyncio
+async def test_settings_check_fails_closed_on_error(mock_context):
+    from handlers.settings import handle_settings_callback
+    chat_id = -1007777
+    user_id = 99999999
+
+    mock_context.bot.get_chat_member.side_effect = Exception("Telegram API timeout")
+
+    update = MagicMock()
+    update.effective_chat.id = chat_id
+    update.effective_user.id = user_id
+    update.effective_user.username = "unauthorized_user"
+    update.callback_query = MagicMock()
+    update.callback_query.data = f"sett:set_time:{chat_id}:night:30"
+    update.callback_query.from_user.id = user_id
+    update.callback_query.answer = AsyncMock()
+
+    handled = await handle_settings_callback(update, mock_context)
+    assert handled is True
+    # Must fail closed: alert that permission could not be verified
+    args, kwargs = update.callback_query.answer.call_args
+    assert "tekshirib bo'lmadi" in args[0] or kwargs.get("show_alert") is True
+
+@pytest.mark.asyncio
 async def test_abort_game_cancels_timer_and_persists_aborted():
     await init_db()
     chat_id = -1005552

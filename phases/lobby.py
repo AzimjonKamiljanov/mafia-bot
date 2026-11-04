@@ -3,6 +3,7 @@ import html
 import logging
 import time
 from typing import Dict, Any, Optional
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -263,16 +264,16 @@ async def _lobby_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, seconds
         if pinned_id:
             try:
                 await context.bot.unpin_chat_message(chat_id=chat_id, message_id=pinned_id)
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=f"{tg_emoji('timer', '⏳')} Lobby vaqti tugadi va o'yin bekor qilindi.",
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
 async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     lobby = lobbies.pop(chat_id, None)
@@ -283,8 +284,8 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     if pinned_id:
         try:
             await context.bot.unpin_chat_message(chat_id=chat_id, message_id=pinned_id)
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
     players = lobby.get("players", [])
     n = len(players)
     if n < MIN_PLAYERS:
@@ -299,15 +300,15 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     try:
         import json
         disabled = set(json.loads(lobby.get("settings", {}).get("disabled_roles", "[]")))
-    except Exception:
-        pass
+    except (TelegramError, Exception) as e:
+        log.debug("Operation suppressed in %s: %s", __name__, e)
     try:
         from database.models import get_bot_config
         global_dis = await get_bot_config("disabled_roles", "[]")
         if global_dis:
             disabled.update(json.loads(global_dis))
-    except Exception:
-        pass
+    except (TelegramError, Exception) as e:
+        log.debug("Operation suppressed in %s: %s", __name__, e)
 
     roles_list = choose_roles(n, disabled=disabled)
     if not roles_list or len(roles_list) != n:

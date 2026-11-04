@@ -2,6 +2,7 @@ import json
 import html
 import logging
 from typing import Dict, Any, List
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -197,8 +198,8 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
         await q.answer("Sozlamalar yopildi.")
         try:
             await q.message.delete()
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return True
 
     if action == "noop":
@@ -214,8 +215,10 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
             if member.status not in ("administrator", "creator"):
                 await q.answer("❌ Faqat guruh admini o'zgartira oladi!", show_alert=True)
                 return True
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.warning("get_chat_member failed on settings for user %s in chat %s: %s", user.id, chat_id, e)
+            await q.answer("❌ Guruh adminlik huquqini tekshirib bo'lmadi. Ruxsat berilmadi.", show_alert=True)
+            return True
 
     if action == "menu":
         settings = await get_chat_settings(chat_id)

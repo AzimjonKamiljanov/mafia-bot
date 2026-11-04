@@ -2,6 +2,7 @@ import asyncio
 import logging
 import html
 from typing import Dict, Any, List
+from telegram.error import TelegramError
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -84,8 +85,8 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
                     reply_markup=graveyard_menu_keyboard(game.get("_db_id", 0), group_link=game.get("group_link")),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
     else:
         lines.append("")
         lines.append(f"🕊️ {tg_emoji('civilian_win', '🕊️')} Bu kecha hech kim halok bo'lmadi. Shaharda osoyishtalik!")

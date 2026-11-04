@@ -1,6 +1,7 @@
 import html
 import logging
 from typing import Optional
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -86,8 +87,8 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 text=lobby_text(lobby),
                                 reply_markup=lobby_keyboard(target_chat_id, include_bot_link=True)
                             )
-                        except Exception:
-                            pass
+                        except (TelegramError, Exception) as e:
+                            log.debug("Operation suppressed in %s: %s", __name__, e)
                         return
                     else:
                         await update.message.reply_text("ℹ️ Siz allaqachon ushbu lobbiga qo'shilgansiz.")
@@ -451,8 +452,8 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await update.callback_query.edit_message_text(reply_content, reply_markup=will_kb, parse_mode="HTML")
                 return
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
         await msg.reply_text(reply_content, reply_markup=will_kb, parse_mode="HTML")
         return
 
@@ -466,8 +467,8 @@ async def will_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await update.callback_query.edit_message_text(saved_text, reply_markup=will_kb, parse_mode="HTML")
             return
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
     await msg.reply_text(saved_text, reply_markup=will_kb, parse_mode="HTML")
 
 async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -520,8 +521,8 @@ async def profile_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await update.callback_query.edit_message_text(text, reply_markup=profile_kb, parse_mode="HTML")
             return
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
     await msg.reply_text(text, reply_markup=profile_kb, parse_mode="HTML")
 
 async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -567,8 +568,8 @@ async def balance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await update.callback_query.edit_message_text(b_text, reply_markup=balance_kb, parse_mode="HTML")
             return
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
     await msg.reply_text(b_text, reply_markup=balance_kb, parse_mode="HTML")
 
 async def rating_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -612,8 +613,8 @@ async def rating_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await update.callback_query.edit_message_text(r_text, reply_markup=rating_kb, parse_mode="HTML")
             return
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
     await msg.reply_text(r_text, reply_markup=rating_kb, parse_mode="HTML")
 
 async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -659,8 +660,8 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await update.callback_query.edit_message_text(card, reply_markup=guide_kb, parse_mode="Markdown")
                     return
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
             await msg.reply_text(card, reply_markup=guide_kb, parse_mode="Markdown")
             return
         else:
@@ -669,8 +670,8 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await update.callback_query.edit_message_text(f"❌ <b>{safe_query}</b> nomli rol topilmadi. Ro'yxatdan birini tanlang.", reply_markup=guide_kb, parse_mode="HTML")
                     return
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
             await msg.reply_text(f"❌ <b>{safe_query}</b> nomli rol topilmadi. Ro'yxatdan birini tanlang.", reply_markup=guide_kb, parse_mode="HTML")
             return
 
@@ -712,8 +713,8 @@ async def guide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await update.callback_query.edit_message_text(text, reply_markup=guide_kb, parse_mode="Markdown")
             return
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
     await msg.reply_text(text, reply_markup=guide_kb, parse_mode="Markdown")
 
 async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -759,8 +760,8 @@ async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if pinned_id:
             try:
                 await context.bot.unpin_chat_message(chat_id=chat_id, message_id=pinned_id)
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     await abort_game(chat_id)
     await msg.reply_text("🛑 O'yin yoki lobby ma'mur tomonidan to'xtatildi.")
@@ -851,8 +852,8 @@ async def chiqish_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=lobby_keyboard(chat.id, include_bot_link=True),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
     game = games.get(chat.id)

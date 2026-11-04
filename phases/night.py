@@ -3,6 +3,7 @@ import random
 import logging
 import html
 from typing import Dict, Any, List, Optional, Set
+from telegram.error import TelegramError
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -320,8 +321,8 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
                     reply_markup=kb,
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # Start timer
     cancel_game_timer(game)
@@ -400,8 +401,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                 chat_id=target,
                 text="🕴️ *SIZ BLOKLANDINGIZ!*\nBu kecha harakatingiz muzlatildi va qobiliyatingiz ishlamadi."
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # 2. PRIORITY 2: THEFT (Pul o'g'risi)
     for thief, victim in list(game.get("coin_thief_targets", {}).items()):
@@ -417,8 +418,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                         chat_id=thief,
                         text=f"💰 *O'g'rilik muvaffaqiyatli!* Siz *{display_name(game, victim)}*dan {stolen} Coin o'g'irladingiz."
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # 3. PRIORITY 3: ATTACKS (Mafia, Maniak, Detektiv Shoot, Pirotexnik)
     attacks: List[Dict[str, Any]] = []
@@ -483,8 +484,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                     chat_id=attacker,
                     text="🌑 *G'alati tun:* Bo'ri o'lmadi va sizga zarar yetkazmadi."
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             continue
 
         # Maniak 1st night attack immunity check
@@ -499,8 +500,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                     chat_id=attacker,
                     text="🌑 *G'alati holat:* Qurboningiz o'lmadi, u shafqatsiz qarshilik ko'rsatib tirik qoldi!"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             continue
 
         # King (Qirol) check - King intercepts attack and does not die
@@ -522,8 +523,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                         chat_id=target,
                         text="🛡️ *O'ZINGIZNI HIMOYA QILDINGIZ!* Sizga qilingan tungi hujumni qaytardingiz va omon qoldingiz."
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
                 continue
             else:
                 # Target is saved, Guard and Attacker duel to death
@@ -536,8 +537,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                         chat_id=target,
                         text="🛡️ *Tansoqchi sizni qutqardi!* U o'z joni evaziga qotilni yo'q qildi."
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
                 continue
 
         # Doctor Protection check
@@ -556,8 +557,8 @@ async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
                         text=f"{tg_emoji('doctor_save', '🩺')} <b>DOKTOR SIZNI DAVOLADI!</b> Tunda sizga suiqasd qilingan edi, ammo shifokor sizni qutqarib qoldi.",
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
             continue
 
         # Avenger (Qasoskor) counter-strike check
@@ -693,8 +694,8 @@ async def complete_night_resolution(
                         reply_markup=return_to_group_keyboard(game),
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
         if saved:
             deaths.discard(uid)
@@ -706,8 +707,8 @@ async def complete_night_resolution(
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # 4.1. SHOP REVENGE KNIFE (Inventory item - Strictly 1 use per game per player)
     for victim_uid in list(deaths):
@@ -737,8 +738,8 @@ async def complete_night_resolution(
                         reply_markup=return_to_group_keyboard(game),
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
         if knife_used:
             deaths.add(target_attacker)
@@ -750,8 +751,8 @@ async def complete_night_resolution(
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # 5. WITNESS (Sayyoh / Tourist)
     for tourist_uid, visited_uid in game.get("tourist_targets", {}).items():
@@ -774,8 +775,8 @@ async def complete_night_resolution(
                         reply_markup=return_to_group_keyboard(game),
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # 6. INVESTIGATIONS (Detektiv & Sherif)
     for det_uid, info in game.get("detective_results", {}).items():
@@ -797,8 +798,8 @@ async def complete_night_resolution(
                     text=f"🌫️ *Qora tuman sababli* ko'rish masofasi yomonlashdi. {tgt_name}ning kimligini aniqlab bo'lmadi.",
                     reply_markup=return_to_group_keyboard(game)
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
             continue
 
         # Firibgar deception
@@ -834,8 +835,8 @@ async def complete_night_resolution(
                             reply_markup=return_to_group_keyboard(game),
                             parse_mode="HTML"
                         )
-                    except Exception:
-                        pass
+                    except (TelegramError, Exception) as e:
+                        log.debug("Operation suppressed in %s: %s", __name__, e)
 
             if fake_doc_used:
                 real_role = "Fuqaro"
@@ -846,8 +847,8 @@ async def complete_night_resolution(
                         reply_markup=return_to_group_keyboard(game),
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
 
         try:
             await context.bot.send_message(
@@ -856,8 +857,8 @@ async def complete_night_resolution(
                 reply_markup=return_to_group_keyboard(game),
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # 7. COMMIT DEATHS
     final_deaths = [u for u in deaths if game["alive"].get(u, False)]
@@ -884,8 +885,8 @@ async def complete_night_resolution(
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # Boss dead -> Killer becomes Boss
     dead_bosses = [u for u in final_deaths if game["roles"].get(u) == "Boshliq"]
@@ -900,8 +901,8 @@ async def complete_night_resolution(
                     reply_markup=return_to_group_keyboard(game),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # Store morning data
     game["last_night_deaths"] = final_deaths
@@ -975,8 +976,8 @@ async def handle_king_decision(
     curr = None
     try:
         curr = asyncio.current_task()
-    except Exception:
-        pass
+    except (TelegramError, Exception) as e:
+        log.debug("Operation suppressed in %s: %s", __name__, e)
     if king_task and king_task is not curr and not king_task.done():
         king_task.cancel()
 
@@ -1009,8 +1010,8 @@ async def handle_king_decision(
                     ),
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except (TelegramError, Exception) as e:
+                log.debug("Operation suppressed in %s: %s", __name__, e)
 
     await save_runtime(game)
     await complete_night_resolution(context, game, deaths, death_causes, crime_clues, saved_by_doc, attacks)

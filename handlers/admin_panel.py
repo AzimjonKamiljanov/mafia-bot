@@ -1,6 +1,7 @@
 import html
 import logging
 from typing import Dict, Any, List
+from telegram.error import TelegramError
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
@@ -180,8 +181,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await q.answer("Panel yopildi.")
         try:
             await q.message.delete()
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return True
 
     if action == "menu":

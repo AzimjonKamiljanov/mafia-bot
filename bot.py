@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from telegram.error import TelegramError
 from telegram import (
     Update, BotCommand, BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats, BotCommandScopeChat, BotCommandScopeDefault
@@ -42,8 +43,8 @@ async def track_group_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if user.id in game.get("players", []) and game.get("alive", {}).get(user.id, False):
                         from core.afk_penalty import record_player_activity
                         record_player_activity(game, user.id)
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
     # Track newly added or joined members via message service update
     if update.message and update.message.new_chat_members and chat and chat.type in ("group", "supergroup"):
@@ -127,8 +128,8 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
     if is_rate_limited(uid, action="pm_cmd", max_rate=10, window_seconds=3.0):
         try:
             await update.message.reply_text("⏳ Iltimos, xabarlarni juda tez yubormang!")
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
         return
 
     # 1. Check if user is waiting to deliver Last Words
@@ -146,8 +147,8 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
                         reply_markup=return_to_group_keyboard(game),
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except (TelegramError, Exception) as e:
+                    log.debug("Operation suppressed in %s: %s", __name__, e)
             return
 
     # 2. Tokenize message text and extract command token + arguments
@@ -387,8 +388,8 @@ async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYP
                 "⚠️ <i>Xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring yoki /start buyrug'ini bering.</i>",
                 parse_mode="HTML"
             )
-        except Exception:
-            pass
+        except (TelegramError, Exception) as e:
+            log.debug("Operation suppressed in %s: %s", __name__, e)
 
 def create_bot_app() -> Application:
     if not BOT_TOKEN:
