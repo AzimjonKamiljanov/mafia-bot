@@ -1,11 +1,13 @@
 import logging
 import html
+import time
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from config import MIN_PLAYERS
+from database.db import get_db
 from database.models import (
-    ensure_user, get_user, change_balance, add_item, get_badge, is_admin, record_afterlife_bet, get_will
+    ensure_user, get_user, change_balance, add_item, get_badge, is_admin, record_afterlife_bet, get_will, now_iso
 )
 from core.engine import (
     games, lobbies, find_game_by_user, display_name, save_runtime,
@@ -71,6 +73,83 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if await handle_admin_callback(update, context):
             return
 
+    # Admin AI grant confirmation callbacks
+    if data.startswith("adm_grant_confirm:") or data.startswith("adm_grant_cancel:"):
+        token = data.split(":", 1)[1]
+        from handlers.admin_ai import pending_admin_grants
+
+        if not is_admin(uid):
+            await q.answer("❌ Bu amal faqat Master Admin uchun!", show_alert=True)
+            return
+
+        grant = pending_admin_grants.get(token)
+        if not grant or (time.time() - grant.get("created_at", 0) > 300):
+            pending_admin_grants.pop(token, None)
+            await q.answer("❌ Ushbu so'rov eskirgan yoki topilmadi.", show_alert=True)
+            try:
+                await q.edit_message_text("⚠️ Ushbu operatsiya bekor qilingan yoki muddati o'tgan.")
+            except Exception:
+                pass
+            return
+
+        if grant["admin_id"] != uid:
+            await q.answer("❌ Bu so'rovni faqat uni yaratgan admin tasdiqlashi mumkin!", show_alert=True)
+            return
+
+        if data.startswith("adm_grant_cancel:"):
+            pending_admin_grants.pop(token, None)
+            await q.answer("Operatsiya bekor qilindi.")
+            await q.edit_message_text("❌ Operatsiya admin tomonidan bekor qilindi.")
+            return
+
+        pending_admin_grants.pop(token, None)
+        target_id = grant["target_id"]
+        db = await get_db()
+        now = now_iso()
+
+        if grant["kind"] == "currency":
+            curr = grant["currency"]
+            amt = grant["amount"]
+            note = f"Super Admin {uid} AI grant"
+            await change_balance(target_id, curr, amt, note)
+            await db.execute("""
+                INSERT INTO transactions (user_id, kind, amount, currency, note, created_at)
+                VALUES (?, 'admin_grant', ?, ?, ?, ?)
+            """, (target_id, amt, curr, note, now))
+            await db.commit()
+            curr_title = "Gold 🟡" if curr == "gold" else "Coin 💰"
+            await q.answer("✅ Muvaffaqiyatli o'tkazildi!")
+            await q.edit_message_text(
+                "👑 <b>AI MASTER: MABLAG' O'TKAZMASI</b>\n\n"
+                f"👤 <b>Qabul qiluvchi:</b> <code>{target_id}</code>\n"
+                f"💎 <b>Miqdor:</b> +{amt} {curr_title}\n\n"
+                "<blockquote>Mablag' muvaffaqiyatli to'ldirildi va audit logiga "
+                "(admin_grant) kiritildi! ✨</blockquote>",
+                parse_mode="HTML"
+            )
+            return
+        elif grant["kind"] == "item":
+            item_key = grant["item_key"]
+            count = grant["count"]
+            item_title = grant["item_title"]
+            note = f"Super Admin {uid} AI item grant"
+            await add_item(target_id, item_key, count)
+            await db.execute("""
+                INSERT INTO transactions (user_id, kind, amount, currency, note, created_at)
+                VALUES (?, 'admin_grant', ?, ?, ?, ?)
+            """, (target_id, count, f"item:{item_key}", note, now))
+            await db.commit()
+            await q.answer("✅ Buyum topshirildi!")
+            await q.edit_message_text(
+                "👑 <b>AI MASTER: BUYUM TAQDIM ETILDI</b>\n\n"
+                f"👤 <b>Foydalanuvchi:</b> <code>{target_id}</code>\n"
+                f"📦 <b>Buyum:</b> {item_title} (x{count})\n\n"
+                "<blockquote>Buyum foydalanuvchi inventariga muvaffaqiyatli qo'shildi va "
+                "audit logiga (admin_grant) kiritildi! 🎒✨</blockquote>",
+                parse_mode="HTML"
+            )
+            return
+
     # Social callbacks (Para / Bro accept or reject)
     if data.startswith("soc_acc:") or data.startswith("soc_rej:"):
         parts = data.split(":")
@@ -85,7 +164,6 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         from handlers.social import pending_social_proposals
-        from database.db import get_db
         prop_key = (req_id, tgt_id, kind)
         prop = pending_social_proposals.pop(prop_key, None)
 
