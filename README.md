@@ -208,7 +208,7 @@ Bot ishga tushganda `init_db()` avtomatik ravishda `PRAGMA user_version`ni teksh
 
 ## 🧪 Testlash
 
-Loyiha 186 dan ortiq to'liq integratsion va birlik (unit) testlar bilan ta'minlangan. Testlarni ishga tushirish:
+Loyiha 189 dan ortiq to'liq integratsion va birlik (unit) testlar bilan ta'minlangan. Testlarni ishga tushirish:
 
 ```bash
 pytest
@@ -216,7 +216,7 @@ pytest
 
 Natija:
 ```text
-186 passed in ~2.6s
+189 passed in ~2.5s
 ```
 
 CI quvuri har bir push va pull request'da GitHub Actions orqali Python 3.11, 3.12 va 3.13 versiyalarida testlarni avtomatik tekshiradi.

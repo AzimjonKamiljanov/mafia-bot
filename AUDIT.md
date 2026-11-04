@@ -1,7 +1,7 @@
 # 🛡️ Xavfsizlik va Arxitektura Auditi Hisoboti (Security & Architecture Audit Report)
 **Loyiha:** Detektiv (Mafia) Telegram Bot  
 **Sana:** 2026-yil Noyabr  
-**Holat:** Yakunlangan / Barcha testlar muvaffaqiyatli o'tgan (186/186 green)
+**Holat:** Yakunlangan / Barcha testlar muvaffaqiyatli o'tgan (189/189 green)
 
 ---
 
@@ -9,7 +9,7 @@
 
 Ushbu hujjat `mafia-bot` (Telegram Detektiv o'yini) loyihasining chuqur xavfsizlik, ishonchlilik va arxitektura auditi natijalarini jamlaydi. Bot `python-telegram-bot >= 21`, `aiosqlite` va `SQLite` asosida qurilgan bo'lib, o'zbek tilidagi guruhlarda interaktiv rolli o'yinlarni boshqaradi.
 
-Audit davomida 8 ta kritik zaiflik va arxitektura kamchiliklari aniqlanib, to'liq bartaraf etildi. Barcha o'zgarishlar alohida atomik git-commitlar orqali amalga oshirildi, mavjud 185 foydalanuvchi ma'lumotlari (`data/detektiv.db`) saqlab qolindi va 186 ta avtomatik testlar to'plami bilan mustahkamlandi.
+Audit davomida 8 ta kritik zaiflik va arxitektura kamchiliklari aniqlanib, to'liq bartaraf etildi. Barcha o'zgarishlar alohida atomik git-commitlar orqali amalga oshirildi, mavjud 185 foydalanuvchi ma'lumotlari (`data/detektiv.db`) saqlab qolindi va 189 ta avtomatik testlar to'plami bilan mustahkamlandi.
 
 ---
 

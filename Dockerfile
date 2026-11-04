@@ -24,6 +24,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
+VOLUME ["/app/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000')" || exit 1

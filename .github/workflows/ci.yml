@@ -32,13 +32,17 @@ jobs:
 
       - name: Run Ruff Lint Check
         run: |
-          ruff check core/ tests/
+          ruff check .
 
-      - name: Run Test Suite
+      - name: Run Mypy Type Check
+        run: |
+          mypy core/ database/ roles/ phases/ --ignore-missing-imports
+
+      - name: Run Test Suite with Coverage Gate
         env:
           BOT_TOKEN: "123456789:ABCdefGHIjklMNOpqrsTUVwxyz123456789"
           ADMIN_IDS: "123456789"
           DB_PATH: ":memory:"
           LOG_LEVEL: "DEBUG"
         run: |
-          pytest -v
+          pytest -v --cov=core --cov=phases --cov=roles --cov=database --cov-report=term-missing --cov-fail-under=60
