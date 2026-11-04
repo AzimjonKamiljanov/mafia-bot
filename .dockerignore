@@ -1,0 +1,16 @@
+.git
+.github
+.env
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+*.db
+*.db.bak
+*.log
+tests/
+AUDIT.md
+data/
+*.zip

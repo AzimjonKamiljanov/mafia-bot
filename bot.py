@@ -21,10 +21,9 @@ from handlers import (
 )
 from phases.lobby import create_lobby
 
-logging.basicConfig(
-    format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-    level=logging.INFO
-)
+from core.logging_config import setup_logging
+
+setup_logging()
 log = logging.getLogger("detektiv.bot")
 
 async def track_group_user(update: Update, context: ContextTypes.DEFAULT_TYPE):

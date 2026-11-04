@@ -1,0 +1,20 @@
+{
+  "bot_title": "Detektiv Mafia Bot",
+  "welcome_private": "Assalomu alaykum, {name}! 🕵️‍♂️\n\nMen **Detektiv Mafia** botiman. Shahar ahli bilan birga sirlarni fosh qiling, jinoyatchilarni toping va g'alaba qozoning!",
+  "lobby_created": "🎮 **Yangi o'yin lobbiesi ochildi!**\n\nO'yinga qo'shilish uchun quyidagi tugmani bosing.",
+  "game_started": "🚀 **O'yin boshlandi!** Barcha o'yinchilarga rollar tarqatildi.",
+  "night_started": "🌙 **Shaharga tun cho'kdi...** O'z qobiliyatlaringizdan foydalaning.",
+  "day_started": "☀️ **Yangi kun boshlandi!** Shahar aholisi uyg'ondi.",
+  "voting_started": "🗳️ **Ovoz berish fazasi boshlandi!** Gumondorni sud minbariga chiqaring.",
+  "verdict_started": "⚖️ **Sud minbari!** Ayblanuvchining taqdirini hal qiling.",
+  "role_fuqaro": "Fuqaro",
+  "role_detektiv": "Detektiv",
+  "role_boshliq": "Boshliq",
+  "role_qotil": "Qotil",
+  "role_doktor": "Doktor",
+  "role_sherif": "Sherif",
+  "role_tansoqchi": "Tansoqchi",
+  "role_joker": "Joker",
+  "role_maniak": "Maniak",
+  "role_pirotexnik": "Pirotexnik"
+}
