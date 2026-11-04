@@ -75,6 +75,45 @@ async def track_chat_member_updated(update: Update, context: ContextTypes.DEFAUL
             except Exception as e:
                 log.debug("Error in track_chat_member_updated: %s", e)
 
+PM_DISPATCH_TABLE = {
+    ("salom", "assalom", "assalomu alaykum", "assalomualaykum", "salomlar", "hello", "hi"): salom_cmd,
+    ("profil", "profile", "profilim", "mening profilim", "shaxsiy", "me"): profile_cmd,
+    ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "coin", "gold", "wallet"): balance_cmd,
+    ("dokon", "do'kon", "shop", "magazin", "bozor"): shop_cmd,
+    ("reyting", "rating", "top", "top10", "top 10", "top 15", "leaderboard"): rating_cmd,
+    ("rollar", "guide", "qo'llanma", "qollanma", "yordam", "help", "qoidalar", "rules"): guide_cmd,
+    ("vasiyat", "vasiyatnoma", "will"): will_cmd,
+    ("klan", "clan", "sindikat", "oila"): clan_cmd,
+    ("newclan", "yangi_klan", "yangiklan"): newclan_cmd,
+    ("stats", "statistika", "holat"): stats_cmd,
+    ("start", "menu", "menyu", "bosh menyu"): start_cmd,
+    ("reja", "plan", "mexanika"): plan_cmd,
+    ("boost", "premium", "vip"): boost_cmd,
+    ("goal", "maqsad"): goal_cmd,
+    ("teamwork", "teamwork-preview", "teamwork_preview", "hamkorlik"): teamwork_cmd,
+    ("settings", "sozlama", "sozlamalar"): settings_cmd,
+    ("admin", "panel", "boshqaruv"): admin_cmd,
+    ("coin", "givecoin", "sendcoin"): coin_cmd,
+    ("gold", "givegold", "sendgold"): gold_cmd,
+    ("send", "drop", "golddrop"): send_cmd,
+    ("givegul",): givegul_cmd,
+    ("para",): para_cmd,
+    ("dpara",): dpara_cmd,
+    ("mypara", "juftlik", "juftim"): mypara_cmd,
+    ("bro",): bro_cmd,
+    ("dbro",): dbro_cmd,
+    ("mybro", "birodar", "broim"): mybro_cmd,
+    ("oyin", "o'yin", "game", "play", "boshlash", "oyun"): create_lobby,
+    ("startgame", "start_game", "go"): startgame_cmd,
+    ("stop", "toxtat"): stop_cmd,
+    ("chiqish", "leave", "tark"): chiqish_cmd,
+    ("call", "chaqir", "tagall", "chorlov"): call_players_cmd,
+    ("reveal", "mer"): reveal_cmd,
+    ("use", "ishlat"): use_item_cmd,
+}
+
+PM_DISPATCH_LOOKUP = {k: fn for aliases, fn in PM_DISPATCH_TABLE.items() for k in aliases}
+
 async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle text messages sent to bot in private chat (e.g. Dying Words / Last Words, slash-free commands, and fallbacks)."""
     if not update.message or not update.effective_user or update.effective_user.is_bot:
@@ -83,6 +122,14 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
     uid = update.effective_user.id
     text = (update.message.text or "").strip()
     if not text:
+        return
+
+    from core.rate_limiter import is_rate_limited
+    if is_rate_limited(uid, action="pm_cmd", max_rate=10, window_seconds=3.0):
+        try:
+            await update.message.reply_text("⏳ Iltimos, xabarlarni juda tez yubormang!")
+        except Exception:
+            pass
         return
 
     # 1. Check if user is waiting to deliver Last Words
@@ -114,146 +161,10 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
 
     full_lower = text.lower().strip()
 
-    # 3. Handle standard commands (both slash and slash-free, with arguments preserved)
-    if full_lower in ("salom", "assalom", "assalomu alaykum", "assalomualaykum", "salomlar", "hello", "hi") or cmd_token in ("salom", "assalom", "assalomualaykum", "salomlar", "hello", "hi"):
-        await salom_cmd(update, context)
-        return
-
-    if full_lower in ("profil", "profile", "profilim", "mening profilim", "shaxsiy", "me") or cmd_token in ("profil", "profile", "profilim", "shaxsiy", "me"):
-        await profile_cmd(update, context)
-        return
-
-    if full_lower in ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "coin", "gold", "wallet") or cmd_token in ("balans", "balance", "hisob", "pul", "pulim", "tangalar", "wallet"):
-        await balance_cmd(update, context)
-        return
-
-    if full_lower in ("dokon", "do'kon", "shop", "magazin", "bozor") or cmd_token in ("dokon", "shop", "magazin", "bozor"):
-        from handlers.shop import shop_cmd
-        await shop_cmd(update, context)
-        return
-
-    if full_lower in ("reyting", "rating", "top", "top10", "top 10", "top 15", "leaderboard") or cmd_token in ("reyting", "rating", "top", "top10", "leaderboard"):
-        await rating_cmd(update, context)
-        return
-
-    if full_lower in ("rollar", "guide", "qo'llanma", "qollanma", "yordam", "help", "qoidalar", "rules") or cmd_token in ("rollar", "guide", "qollanma", "yordam", "help", "qoidalar", "rules"):
-        await guide_cmd(update, context)
-        return
-
-    if cmd_token in ("vasiyat", "vasiyatnoma", "will"):
-        await will_cmd(update, context)
-        return
-
-    if cmd_token in ("klan", "clan", "sindikat", "oila"):
-        from handlers.clans import clan_cmd
-        await clan_cmd(update, context)
-        return
-
-    if cmd_token in ("newclan", "yangi_klan", "yangiklan"):
-        from handlers.clans import newclan_cmd
-        await newclan_cmd(update, context)
-        return
-
-    if full_lower in ("stats", "statistika", "holat") or cmd_token in ("stats", "statistika", "holat"):
-        from handlers.admin_panel import stats_cmd
-        await stats_cmd(update, context)
-        return
-
-    if full_lower in ("start", "menu", "menyu", "bosh menyu") or cmd_token in ("start", "menu", "menyu"):
-        await start_cmd(update, context)
-        return
-
-    if full_lower in ("reja", "plan", "mexanika") or cmd_token in ("reja", "plan", "mexanika"):
-        await plan_cmd(update, context)
-        return
-
-    if full_lower in ("boost", "premium", "vip") or cmd_token in ("boost", "premium", "vip"):
-        await boost_cmd(update, context)
-        return
-
-    if full_lower in ("goal", "maqsad") or cmd_token in ("goal", "maqsad"):
-        await goal_cmd(update, context)
-        return
-
-    if full_lower in ("teamwork", "teamwork-preview", "teamwork_preview", "hamkorlik") or cmd_token in ("teamwork", "teamwork-preview", "teamwork_preview", "hamkorlik"):
-        await teamwork_cmd(update, context)
-        return
-
-    if cmd_token in ("settings", "sozlama", "sozlamalar"):
-        await settings_cmd(update, context)
-        return
-
-    if cmd_token in ("admin", "panel", "boshqaruv"):
-        await admin_cmd(update, context)
-        return
-
-    if cmd_token in ("coin", "givecoin", "sendcoin"):
-        await coin_cmd(update, context)
-        return
-
-    if cmd_token in ("gold", "givegold", "sendgold"):
-        await gold_cmd(update, context)
-        return
-
-    if cmd_token in ("send", "drop", "golddrop"):
-        await send_cmd(update, context)
-        return
-
-    if cmd_token in ("givegul",):
-        await givegul_cmd(update, context)
-        return
-
-    if cmd_token in ("para",):
-        await para_cmd(update, context)
-        return
-
-    if cmd_token in ("dpara",):
-        await dpara_cmd(update, context)
-        return
-
-    if cmd_token in ("mypara", "juftlik", "juftim"):
-        await mypara_cmd(update, context)
-        return
-
-    if cmd_token in ("bro",):
-        await bro_cmd(update, context)
-        return
-
-    if cmd_token in ("dbro",):
-        await dbro_cmd(update, context)
-        return
-
-    if cmd_token in ("mybro", "birodar", "broim"):
-        await mybro_cmd(update, context)
-        return
-
-    if full_lower in ("oyin", "o'yin", "game", "play", "boshlash") or cmd_token in ("game", "oyun", "oyin"):
-        from phases.lobby import create_lobby
-        await create_lobby(update, context)
-        return
-
-    if cmd_token in ("startgame", "start_game", "go"):
-        await startgame_cmd(update, context)
-        return
-
-    if cmd_token in ("stop", "toxtat"):
-        await stop_cmd(update, context)
-        return
-
-    if cmd_token in ("chiqish", "leave", "tark"):
-        await chiqish_cmd(update, context)
-        return
-
-    if cmd_token in ("call", "chaqir", "tagall", "chorlov"):
-        await call_players_cmd(update, context)
-        return
-
-    if cmd_token in ("reveal", "mer"):
-        await reveal_cmd(update, context)
-        return
-
-    if cmd_token in ("use", "ishlat"):
-        await use_item_cmd(update, context)
+    # 3. Handle standard commands via fast O(1) dictionary lookup
+    handler = PM_DISPATCH_LOOKUP.get(full_lower) or PM_DISPATCH_LOOKUP.get(cmd_token)
+    if handler:
+        await handler(update, context)
         return
 
     # 4. Check if admin sent AI natural language configuration command

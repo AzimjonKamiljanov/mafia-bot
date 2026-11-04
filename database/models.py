@@ -253,10 +253,6 @@ async def get_chat_settings(chat_id: int) -> Dict[str, Any]:
             INSERT OR IGNORE INTO chat_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
             VALUES (?, 300, 60, ?, 45, 25, '[]', ?)
         """, (chat_id, DEFAULT_DAY_SECONDS, now))
-        await db.execute("""
-            INSERT OR IGNORE INTO group_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
-            VALUES (?, 300, 60, ?, 45, 25, '[]', ?)
-        """, (chat_id, DEFAULT_DAY_SECONDS, now))
         await db.commit()
         return {
             "chat_id": chat_id,
@@ -290,10 +286,6 @@ async def update_chat_settings(chat_id: int, **kwargs):
     params.append(now_iso())
     params.append(chat_id)
     await db.execute(f"UPDATE chat_settings SET {', '.join(fields)} WHERE chat_id = ?", params)
-    try:
-        await db.execute(f"UPDATE group_settings SET {', '.join(fields)} WHERE chat_id = ?", params)
-    except Exception:
-        pass
     await db.commit()
 
 get_group_settings = get_chat_settings

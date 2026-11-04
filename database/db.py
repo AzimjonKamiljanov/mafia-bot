@@ -30,7 +30,33 @@ async def close_db():
 async def init_db():
     """Ensure all required tables, columns, and indexes are initialized asynchronously."""
     db = await get_db()
-    
+
+    # Pre-migration: If group_settings is an existing physical table, merge into chat_settings and drop it
+    try:
+        async with db.execute("SELECT type FROM sqlite_master WHERE name = 'group_settings'") as cur:
+            tbl_info = await cur.fetchone()
+            if tbl_info and tbl_info["type"] == "table":
+                await db.execute("""
+                    CREATE TABLE IF NOT EXISTS chat_settings (
+                        chat_id INTEGER PRIMARY KEY,
+                        lobby_seconds INTEGER NOT NULL DEFAULT 300,
+                        night_seconds INTEGER NOT NULL DEFAULT 60,
+                        day_seconds INTEGER NOT NULL DEFAULT 15,
+                        vote_seconds INTEGER NOT NULL DEFAULT 45,
+                        verdict_seconds INTEGER NOT NULL DEFAULT 25,
+                        disabled_roles TEXT NOT NULL DEFAULT '[]',
+                        updated_at TEXT NOT NULL
+                    )
+                """)
+                await db.execute("""
+                    INSERT OR IGNORE INTO chat_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
+                    SELECT chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at FROM group_settings
+                """)
+                await db.execute("DROP TABLE group_settings")
+                await db.commit()
+    except Exception as e:
+        log.debug("group_settings pre-migration notice: %s", e)
+
     # 1. Asosiy jadvallar
     await db.executescript("""
     CREATE TABLE IF NOT EXISTS users (
@@ -118,17 +144,6 @@ async def init_db():
         PRIMARY KEY(chat_id, user_id)
     );
 
-    CREATE TABLE IF NOT EXISTS group_settings (
-        chat_id INTEGER PRIMARY KEY,
-        lobby_seconds INTEGER NOT NULL DEFAULT 300,
-        night_seconds INTEGER NOT NULL DEFAULT 60,
-        day_seconds INTEGER NOT NULL DEFAULT 15,
-        vote_seconds INTEGER NOT NULL DEFAULT 45,
-        verdict_seconds INTEGER NOT NULL DEFAULT 25,
-        disabled_roles TEXT NOT NULL DEFAULT '[]',
-        updated_at TEXT NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS chat_settings (
         chat_id INTEGER PRIMARY KEY,
         lobby_seconds INTEGER NOT NULL DEFAULT 300,
@@ -139,6 +154,35 @@ async def init_db():
         disabled_roles TEXT NOT NULL DEFAULT '[]',
         updated_at TEXT NOT NULL
     );
+
+    CREATE VIEW IF NOT EXISTS group_settings AS SELECT * FROM chat_settings;
+
+    CREATE TRIGGER IF NOT EXISTS trg_group_settings_insert
+    INSTEAD OF INSERT ON group_settings
+    BEGIN
+        INSERT OR REPLACE INTO chat_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
+        VALUES (NEW.chat_id, NEW.lobby_seconds, NEW.night_seconds, NEW.day_seconds, NEW.vote_seconds, NEW.verdict_seconds, NEW.disabled_roles, NEW.updated_at);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_group_settings_update
+    INSTEAD OF UPDATE ON group_settings
+    BEGIN
+        UPDATE chat_settings
+        SET lobby_seconds = NEW.lobby_seconds,
+            night_seconds = NEW.night_seconds,
+            day_seconds = NEW.day_seconds,
+            vote_seconds = NEW.vote_seconds,
+            verdict_seconds = NEW.verdict_seconds,
+            disabled_roles = NEW.disabled_roles,
+            updated_at = NEW.updated_at
+        WHERE chat_id = OLD.chat_id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_group_settings_delete
+    INSTEAD OF DELETE ON group_settings
+    BEGIN
+        DELETE FROM chat_settings WHERE chat_id = OLD.chat_id;
+    END;
 
     CREATE TABLE IF NOT EXISTS bot_config (
         key TEXT PRIMARY KEY,
@@ -227,16 +271,27 @@ async def init_db():
         except Exception:
             pass
 
-    for tbl in ("group_settings", "chat_settings"):
-        for col, col_def in [
-            ("vote_seconds", "INTEGER NOT NULL DEFAULT 45"),
-            ("verdict_seconds", "INTEGER NOT NULL DEFAULT 25"),
-        ]:
-            try:
-                await db.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_def}")
-                await db.commit()
-            except Exception:
-                pass
+    # Versioned migration using PRAGMA user_version
+    async with db.execute("PRAGMA user_version") as cur:
+        row = await cur.fetchone()
+        user_ver = row[0] if row else 0
+
+    if user_ver < 1:
+        async with db.execute("SELECT type FROM sqlite_master WHERE name = 'group_settings'") as cur:
+            tbl_info = await cur.fetchone()
+            if tbl_info and tbl_info["type"] == "table":
+                try:
+                    await db.execute("""
+                        INSERT OR IGNORE INTO chat_settings (chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at)
+                        SELECT chat_id, lobby_seconds, night_seconds, day_seconds, vote_seconds, verdict_seconds, disabled_roles, updated_at FROM group_settings
+                    """)
+                    await db.execute("DROP TABLE group_settings")
+                except Exception as e:
+                    log.debug("group_settings merge note: %s", e)
+
+        await db.execute("CREATE VIEW IF NOT EXISTS group_settings AS SELECT * FROM chat_settings")
+        await db.execute("PRAGMA user_version = 1")
+        await db.commit()
 
     # One-time migration / startup check to close stale rows stuck in state='active'
     try:

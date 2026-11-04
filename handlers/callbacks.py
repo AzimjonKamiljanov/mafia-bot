@@ -61,6 +61,14 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = user.id
     await ensure_user(user)
 
+    from core.rate_limiter import is_rate_limited
+    if is_rate_limited(uid, action="cb", max_rate=12, window_seconds=2.0):
+        try:
+            await q.answer("⏳ Iltimos, tugmalarni juda tez bosmang!", show_alert=False)
+        except Exception:
+            pass
+        return
+
     # Settings callbacks
     if data.startswith("sett:"):
         from handlers.settings import handle_settings_callback
