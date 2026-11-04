@@ -66,39 +66,58 @@ async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
         row = await cursor.fetchone()
         return dict(row) if row else None
 
+VALID_CURRENCIES = {"coin", "gold"}
+VALID_INVENTORY_FIELDS = {
+    "revenge_knife",
+    "evidence",
+    "protection",
+    "hint",
+    "special_detective",
+    "rose",
+    "fake_document",
+    "ruler_protection",
+    "extra_vote",
+}
+VALID_CHAT_SETTINGS_FIELDS = {
+    "lobby_seconds",
+    "night_seconds",
+    "day_seconds",
+    "vote_seconds",
+    "verdict_seconds",
+    "disabled_roles",
+}
+
 async def get_balance(uid: int, currency: str = "coin") -> int:
     if is_admin(uid):
         return 999999999
+    if currency not in VALID_CURRENCIES:
+        return 0
     u = await get_user(uid)
     if not u:
         return 0
     return int(u.get(currency, 0))
 
 async def change_balance(uid: int, currency: str, amount: int, note: str = "") -> bool:
-    """Safely adjust coin or gold balance. Admins bypass balance checks."""
-    if currency not in ("coin", "gold"):
+    """Safely adjust coin or gold balance atomically. Admins bypass balance checks."""
+    if currency not in VALID_CURRENCIES:
         return False
     if is_admin(uid):
         return True
 
     db = await get_db()
-    async with db.execute(f"SELECT {currency} FROM users WHERE user_id = ?", (uid,)) as cursor:
-        row = await cursor.fetchone()
-    if not row:
-        return False
-
-    current = int(row[currency] or 0)
-    if current + amount < 0:
-        return False
-
-    await db.execute(
-        f"UPDATE users SET {currency} = {currency} + ?, updated_at = ? WHERE user_id = ?",
-        (amount, now_iso(), uid)
+    now = now_iso()
+    # Single atomic statement: prevents negative balances and double-spending across concurrent requests
+    cursor = await db.execute(
+        f"UPDATE users SET {currency} = {currency} + ?, updated_at = ? WHERE user_id = ? AND ({currency} + ?) >= 0",
+        (amount, now, uid, amount)
     )
+    if cursor.rowcount <= 0:
+        return False
+
     await db.execute("""
         INSERT INTO transactions (user_id, kind, amount, currency, note, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (uid, "credit" if amount >= 0 else "debit", abs(amount), currency, note, now_iso()))
+    """, (uid, "credit" if amount >= 0 else "debit", abs(amount), currency, note, now))
     await db.commit()
     return True
 
@@ -113,29 +132,34 @@ async def get_inventory(uid: int) -> Dict[str, int]:
         return dict(row)
 
 async def add_item(uid: int, field: str, amount: int = 1) -> bool:
+    """Safely increment inventory field using whitelisted column."""
+    if field not in VALID_INVENTORY_FIELDS or amount <= 0:
+        return False
     db = await get_db()
     try:
-        await db.execute(
+        await db.execute("INSERT OR IGNORE INTO inventory (user_id) VALUES (?)", (uid,))
+        cursor = await db.execute(
             f"UPDATE inventory SET {field} = {field} + ? WHERE user_id = ?",
             (amount, uid)
         )
         await db.commit()
-        return True
+        return cursor.rowcount > 0
     except Exception as e:
         log.error("Failed to add item %s for %s: %s", field, uid, e)
         return False
 
 async def take_item(uid: int, field: str, amount: int = 1) -> bool:
+    """Atomically decrement inventory item count, preventing negative counts."""
+    if field not in VALID_INVENTORY_FIELDS or amount <= 0:
+        return False
     db = await get_db()
     try:
-        async with db.execute(f"SELECT {field} FROM inventory WHERE user_id = ?", (uid,)) as cursor:
-            row = await cursor.fetchone()
-        if not row or (row[field] or 0) < amount:
-            return False
-        await db.execute(
-            f"UPDATE inventory SET {field} = {field} - ? WHERE user_id = ?",
-            (amount, uid)
+        cursor = await db.execute(
+            f"UPDATE inventory SET {field} = {field} - ? WHERE user_id = ? AND ({field} - ?) >= 0",
+            (amount, uid, amount)
         )
+        if cursor.rowcount <= 0:
+            return False
         await db.commit()
         return True
     except Exception as e:
@@ -256,8 +280,12 @@ async def update_chat_settings(chat_id: int, **kwargs):
     fields = []
     params = []
     for k, v in kwargs.items():
+        if k not in VALID_CHAT_SETTINGS_FIELDS:
+            continue
         fields.append(f"{k} = ?")
         params.append(v)
+    if not fields:
+        return
     fields.append("updated_at = ?")
     params.append(now_iso())
     params.append(chat_id)
