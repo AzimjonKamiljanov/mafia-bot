@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 
 from config import DEFAULT_VOTE_SECONDS
 from core.engine import (
-    display_name, save_runtime, check_winner, cancel_game_timer
+    display_name, save_runtime, check_winner, cancel_game_timer, touch_game_activity
 )
 from core.audio_effects import send_atmospheric_message
 from core.navigation import bot_action_button
@@ -58,6 +58,7 @@ async def start_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any])
     night_num = game.get("night", 1)
     game["phase"] = "voting"
     game["votes"] = {}
+    touch_game_activity(game)
     await save_runtime(game)
 
     vote_seconds = int(game.get("settings", {}).get("vote_seconds", DEFAULT_VOTE_SECONDS))
@@ -67,14 +68,17 @@ async def start_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any])
     )
 
     kb = get_voting_keyboard(game)
-    await send_atmospheric_message(
-        bot=context.bot,
-        chat_id=chat_id,
-        text=text,
-        sound_type="voting",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    try:
+        await send_atmospheric_message(
+            bot=context.bot,
+            chat_id=chat_id,
+            text=text,
+            sound_type="voting",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log.error("Error sending voting atmospheric message in chat %s: %s", chat_id, e)
 
     cancel_game_timer(game)
     game["_timer_task"] = asyncio.create_task(_vote_timer(context, chat_id, night_num, vote_seconds))
@@ -87,7 +91,10 @@ async def _vote_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, night_nu
     from core.engine import games
     game = games.get(chat_id)
     if game and game.get("phase") == "voting" and game.get("night") == night_num and not game.get("_finish_started"):
-        await finish_voting(context, game)
+        try:
+            await finish_voting(context, game)
+        except Exception as e:
+            log.exception("Exception in finish_voting from _vote_timer for chat %s: %s", chat_id, e)
 
 async def finish_voting(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     if game.get("phase") != "voting" or game.get("_finish_started") or game.get("_resolving_voting"):

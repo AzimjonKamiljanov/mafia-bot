@@ -14,7 +14,8 @@ from database.models import (
     ensure_user, get_badge, get_group_settings, is_admin, track_group_member, get_group_members
 )
 from core.engine import (
-    lobbies, games, display_name, save_runtime, cancel_lobby_timer, cancel_game_timer
+    lobbies, games, display_name, save_runtime, cancel_lobby_timer, cancel_game_timer,
+    is_game_stale, check_and_clean_stale_game, touch_game_activity
 )
 from roles.allocator import choose_roles
 from roles.base import get_role_info, get_role_icon
@@ -188,9 +189,10 @@ async def create_lobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     chat_id = chat.id
+    check_and_clean_stale_game(chat_id)
     if chat_id in games:
         game = games[chat_id]
-        if game.get("phase") in ("finished", "aborted"):
+        if game.get("phase") in ("finished", "aborted") or is_game_stale(game):
             games.pop(chat_id, None)
         else:
             await context.bot.send_message(
@@ -353,6 +355,7 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         "premium": dict(lobby.get("premium", {})),
         "settings": dict(lobby.get("settings", {})),
         "created_at": time.time(),
+        "last_activity": time.time(),
         "roles": player_roles,
         "alive": {u: True for u in players},
         "phase": "night",
@@ -394,22 +397,25 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     await save_runtime(game)
 
     # Guruhga start e'loni
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=(
-            f"{tg_emoji('game_start', '✨')} <b>O'yin boshlandi!</b>\n\n"
-            f"{tg_emoji('civilian', '👥')} Ishtirokchilar: <b>{n} nafar</b>\n"
-            "📩 Barcha o'yinchilarga shaxsiy xabarda (PM) rollar yuborildi.\n\n"
-            f"{tg_emoji('night', '🌙')} Shahar uyquga ketmoqda... Tungi harakatlar boshlandi!"
-        ),
-        reply_markup=InlineKeyboardMarkup([
-            [bot_action_button(chat_id, "🔵 💬 Botga o'tish (Amallar/Ovoz)")]
-        ]),
-        parse_mode="HTML"
-    )
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"{tg_emoji('game_start', '✨')} <b>O'yin boshlandi!</b>\n\n"
+                f"{tg_emoji('civilian', '👥')} Ishtirokchilar: <b>{n} nafar</b>\n"
+                "📩 Barcha o'yinchilarga shaxsiy xabarda (PM) rollar yuborildi.\n\n"
+                f"{tg_emoji('night', '🌙')} Shahar uyquga ketmoqda... Tungi harakatlar boshlandi!"
+            ),
+            reply_markup=InlineKeyboardMarkup([
+                [bot_action_button(chat_id, "🔵 💬 Botga o'tish (Amallar/Ovoz)")]
+            ]),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log.warning("Could not send start_game announcement in chat %s: %s", chat_id, e)
 
     # Shaxsiy xabarda har bir o'yinchiga to'liq taktik rol yo'riqnomasini yuborish
-    from phases.night import start_night
+    from phases.night import start_night, _night_timer
     return_kb = return_to_group_keyboard(game)
     for uid in players:
         role_name = player_roles[uid]
@@ -449,5 +455,10 @@ async def start_game(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
             except Exception as e2:
                 log.warning("Could not send dossier to %s: %s", uid, e2)
 
-    # Tunni boshlash
-    await start_night(context, game)
+    # Tunni boshlash (Favqulodda himoya bilan)
+    try:
+        await start_night(context, game)
+    except Exception as e:
+        log.exception("Error in start_night for chat %s: %s. Scheduling emergency recovery timer...", chat_id, e)
+        cancel_game_timer(game)
+        game["_timer_task"] = asyncio.create_task(_night_timer(context, chat_id, game.get("night", 1), 30))

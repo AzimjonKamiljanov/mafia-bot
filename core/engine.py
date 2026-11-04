@@ -82,8 +82,13 @@ def get_lobby(chat_id: int) -> Optional[Dict[str, Any]]:
     return lobbies.get(chat_id)
 
 def find_game_by_user(user_id: int) -> Optional[Dict[str, Any]]:
-    for g in games.values():
+    for g in list(games.values()):
         if g.get("phase") not in ("finished", "aborted") and user_id in g.get("players", []):
+            if is_game_stale(g):
+                chat_id = g.get("chat")
+                if chat_id:
+                    check_and_clean_stale_game(chat_id)
+                continue
             return g
     return None
 
@@ -92,6 +97,68 @@ def find_lobby_by_user(user_id: int) -> Optional[Dict[str, Any]]:
         if l.get("open") and user_id in l.get("players", []):
             return l
     return None
+
+def touch_game_activity(game: Optional[Dict[str, Any]]) -> None:
+    """Update last_activity timestamp on game dict to track liveness."""
+    if game and isinstance(game, dict):
+        game["last_activity"] = time.time()
+
+def is_game_stale(game: Optional[Dict[str, Any]]) -> bool:
+    """Check if an in-memory game object has become orphaned, finished, aborted, or permanently stuck."""
+    if not game or not isinstance(game, dict):
+        return True
+    phase = game.get("phase")
+    if phase in ("finished", "aborted"):
+        return True
+
+    now = time.time()
+    created_at = game.get("created_at", now)
+    last_act = game.get("last_activity", created_at)
+
+    # 1. Any game created more than 30 minutes ago without completion is considered stale
+    if (now - created_at) > 1800:
+        return True
+
+    # 2. Inactive for > 300 seconds (5 minutes) with no activity
+    if (now - last_act) > 300:
+        return True
+
+    # 3. If timer task is completed/missing and not in an active transition
+    timer_task = game.get("_timer_task")
+    is_timer_active = (timer_task is not None and not timer_task.done())
+    if not is_timer_active:
+        resolving = (
+            game.get("_resolving_night") or
+            game.get("_resolving_voting") or
+            game.get("_resolving_verdict") or
+            game.get("_finish_started") or
+            game.get("_waiting_king")
+        )
+        if not resolving and (now - last_act > 45):
+            return True
+        if resolving and (now - last_act > 120):
+            return True
+
+    return False
+
+def check_and_clean_stale_game(chat_id: int) -> bool:
+    """If chat has a stale or dead game, safely cancel its timers, remove from memory, and abort in DB."""
+    if chat_id not in games:
+        return False
+    game = games[chat_id]
+    if is_game_stale(game):
+        log.warning("Evicting stale/dead game in chat %s (phase=%s, created_at=%s)",
+                    chat_id, game.get("phase"), game.get("created_at"))
+        cancel_game_timer(game)
+        games.pop(chat_id, None)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(abort_game(chat_id, reason="Qotib qolgan o'yin tozalandi."))
+        except Exception as e:
+            log.debug("abort_game background task suppression: %s", e)
+        return True
+    return False
 
 def cancel_game_timer(game: Optional[Dict[str, Any]]):
     """Safely cancel any pending background timer task attached to game."""

@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 
 from config import DEFAULT_DAY_SECONDS, DAY_PHOTO_PATH
 from core.engine import (
-    display_name, save_runtime, check_winner, cancel_game_timer
+    display_name, save_runtime, check_winner, cancel_game_timer, touch_game_activity
 )
 from core.storyteller import generate_morning_story
 from core.will import fetch_player_will, format_will_announcement
@@ -24,6 +24,7 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     chat_id = game["chat"]
     night_num = game.get("night", 1)
     game["phase"] = "day"
+    touch_game_activity(game)
 
     deaths: List[int] = game.get("last_night_deaths", [])
     causes: Dict[int, List[str]] = game.get("last_night_causes", {})
@@ -112,15 +113,18 @@ async def day_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         ])
     day_keyboard = InlineKeyboardMarkup(buttons)
 
-    await send_atmospheric_message(
-        bot=context.bot,
-        chat_id=chat_id,
-        text="\n".join(lines),
-        sound_type="morning",
-        photo_path=DAY_PHOTO_PATH,
-        reply_markup=day_keyboard,
-        parse_mode="HTML"
-    )
+    try:
+        await send_atmospheric_message(
+            bot=context.bot,
+            chat_id=chat_id,
+            text="\n".join(lines),
+            sound_type="morning",
+            photo_path=DAY_PHOTO_PATH,
+            reply_markup=day_keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log.error("Error sending day atmospheric message in chat %s: %s", chat_id, e)
 
     await save_runtime(game)
 
@@ -140,5 +144,8 @@ async def _day_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, night_num
     from core.engine import games
     game = games.get(chat_id)
     if game and game.get("phase") == "day" and game.get("night") == night_num and not game.get("_finish_started"):
-        from phases.voting import start_voting
-        await start_voting(context, game)
+        try:
+            from phases.voting import start_voting
+            await start_voting(context, game)
+        except Exception as e:
+            log.exception("Exception in start_voting from _day_timer for chat %s: %s", chat_id, e)

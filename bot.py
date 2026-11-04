@@ -69,6 +69,8 @@ async def track_group_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     from database.models import get_badge
                     import html
                     async with get_chat_lock(chat.id):
+                        from core.engine import check_and_clean_stale_game
+                        check_and_clean_stale_game(chat.id)
                         lob = lobbies.get(chat.id)
                         if lob and lob.get("open") and user and user.id not in lob["players"] and len(lob["players"]) < MAX_PLAYERS:
                             for other_cid, other_lob in list(lobbies.items()):
@@ -388,7 +390,7 @@ class SafeExtBot(ExtBot):
                     elif data.get("parse_mode") in ("HTML", "html"):
                         from core.emojis import enrich_with_animated_emojis
                         data[k] = enrich_with_animated_emojis(data[k])
-                    elif data.get("parse_mode") is None:
+                    elif data.get("parse_mode") is None and not data.get("_plain_text_mode"):
                         from core.emojis import _COMBINED_EMOJI_RE, enrich_with_animated_emojis
                         if _COMBINED_EMOJI_RE.search(data[k]):
                             import html
@@ -407,8 +409,12 @@ class SafeExtBot(ExtBot):
             return await super()._do_post(endpoint, data, *args, **kwargs)
         except Exception as e:
             err_msg = str(e).lower()
-            if any(term in err_msg for term in ("document_invalid", "can't parse entities", "custom_emoji")) and data and isinstance(data, dict):
-                log.warning("Telegram BadRequest error (%s). Adapting with verified Telegram Custom Emoji IDs...", e)
+            entity_terms = (
+                "document_invalid", "can't parse entities", "custom_emoji",
+                "entity_bounds_invalid", "invalid custom emoji", "entities", "entity", "parse"
+            )
+            if any(term in err_msg for term in entity_terms) and data and isinstance(data, dict):
+                log.warning("Telegram formatting/entity error (%s). Adapting with verified Telegram Custom Emoji IDs...", e)
                 self._needs_real_telegram_ids = True
                 self.__class__._needs_real_telegram_ids = True
                 retry_data = dict(data)
@@ -420,7 +426,7 @@ class SafeExtBot(ExtBot):
                     return await super()._do_post(endpoint, retry_data, *args, **kwargs)
                 except Exception as retry_err:
                     retry_msg = str(retry_err).lower()
-                    if any(term in retry_msg for term in ("document_invalid", "can't parse entities", "custom_emoji")):
+                    if any(term in retry_msg for term in entity_terms):
                         log.warning("Telegram Custom Emoji retry failed (%s). Stripping tags as fallback...", retry_err)
                         strip_data = dict(retry_data)
                         from core.visuals import strip_anim_emoji_tags
@@ -430,11 +436,16 @@ class SafeExtBot(ExtBot):
                         try:
                             return await super()._do_post(endpoint, strip_data, *args, **kwargs)
                         except Exception as final_err:
-                            if "can't parse entities" in str(final_err).lower():
-                                strip_data_plain = dict(strip_data)
-                                strip_data_plain.pop("parse_mode", None)
+                            import re
+                            strip_data_plain = dict(strip_data)
+                            strip_data_plain.pop("parse_mode", None)
+                            for k in ("text", "caption"):
+                                if k in strip_data_plain and isinstance(strip_data_plain[k], str):
+                                    strip_data_plain[k] = re.sub(r'<[^>]+>', '', strip_data_plain[k])
+                            try:
                                 return await super()._do_post(endpoint, strip_data_plain, *args, **kwargs)
-                            raise
+                            except Exception:
+                                raise final_err
                     raise
             raise
 

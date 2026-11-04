@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from config import DEFAULT_VERDICT_SECONDS
 from database.models import take_item
 from core.engine import (
-    display_name, save_runtime, check_winner, finish_game, cancel_game_timer
+    display_name, save_runtime, check_winner, finish_game, cancel_game_timer, touch_game_activity
 )
 from core.storyteller import generate_verdict_story
 from core.will import fetch_player_will, format_will_announcement
@@ -39,6 +39,7 @@ async def verdict_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
     game["phase"] = "verdict"
     game["accused_uid"] = accused_uid
     game["verdict_votes"] = {}
+    touch_game_activity(game)
     await save_runtime(game)
 
     accused_name = display_name(game, accused_uid)
@@ -52,14 +53,17 @@ async def verdict_phase(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]
     )
 
     kb = verdict_keyboard(chat_id, accused_uid)
-    await send_atmospheric_message(
-        bot=context.bot,
-        chat_id=chat_id,
-        text=text,
-        sound_type="verdict",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    try:
+        await send_atmospheric_message(
+            bot=context.bot,
+            chat_id=chat_id,
+            text=text,
+            sound_type="verdict",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log.error("Error sending verdict atmospheric message in chat %s: %s", chat_id, e)
 
     night_num = game.get("night", 1)
     cancel_game_timer(game)
@@ -73,7 +77,10 @@ async def _verdict_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, night
     from core.engine import games
     game = games.get(chat_id)
     if game and game.get("phase") == "verdict" and game.get("accused_uid") == accused_uid and not game.get("_finish_started"):
-        await resolve_verdict(context, game)
+        try:
+            await resolve_verdict(context, game)
+        except Exception as e:
+            log.exception("Exception in resolve_verdict from _verdict_timer for chat %s: %s", chat_id, e)
 
 async def resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     if game.get("phase") != "verdict" or game.get("_finish_started") or game.get("_resolving_verdict"):
@@ -335,14 +342,17 @@ async def _do_resolve_verdict(context: ContextTypes.DEFAULT_TYPE, game: Dict[str
         lines.append(f"\n🕊️ <b>SHAHAR AVF ETDI:</b> <b>{escaped_accused}</b> omon qoldi va o'yin davom etadi.")
 
     sound_marker = "execution" if (kill_weight > forgive_weight) else "saved"
-    await send_atmospheric_message(
-        bot=context.bot,
-        chat_id=chat_id,
-        text="\n".join(lines),
-        sound_type=sound_marker,
-        reply_markup=verdict_res_kb,
-        parse_mode="HTML"
-    )
+    try:
+        await send_atmospheric_message(
+            bot=context.bot,
+            chat_id=chat_id,
+            text="\n".join(lines),
+            sound_type=sound_marker,
+            reply_markup=verdict_res_kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log.error("Error sending verdict execution/saved message in chat %s: %s", chat_id, e)
     await save_runtime(game)
 
     # Check winner

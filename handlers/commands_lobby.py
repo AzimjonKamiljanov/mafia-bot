@@ -6,7 +6,10 @@ from telegram.ext import ContextTypes
 
 from config import MIN_PLAYERS, MAX_PLAYERS, BOT_USERNAME
 from database.models import is_admin, ensure_user, track_group_member, get_badge
-from core.engine import games, lobbies, display_name, abort_lobby, abort_game, find_game_by_user, get_chat_lock
+from core.engine import (
+    games, lobbies, display_name, abort_lobby, abort_game, find_game_by_user, get_chat_lock,
+    is_game_stale, check_and_clean_stale_game
+)
 from phases.lobby import lobby_text, lobby_keyboard, start_game, call_players_in_chat
 
 log = logging.getLogger("detektiv.handlers.commands_lobby")
@@ -34,9 +37,10 @@ async def join_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = chat.id
     async with get_chat_lock(chat_id):
+        check_and_clean_stale_game(chat_id)
         if chat_id in games:
             game = games[chat_id]
-            if game.get("phase") in ("finished", "aborted"):
+            if game.get("phase") in ("finished", "aborted") or is_game_stale(game):
                 games.pop(chat_id, None)
             else:
                 await msg.reply_text("⚠️ Ushbu guruhda o'yin allaqachon boshlangan!")
@@ -60,8 +64,11 @@ async def join_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         existing_game = find_game_by_user(uid)
         if existing_game and existing_game.get("chat") != chat_id and existing_game.get("phase") not in ("finished", "aborted") and existing_game.get("alive", {}).get(uid, False):
-            await msg.reply_text("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.")
-            return
+            if not is_game_stale(existing_game):
+                await msg.reply_text("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.")
+                return
+            else:
+                check_and_clean_stale_game(existing_game.get("chat", 0))
 
         # Auto-switch from any other lobby seamlessly
         for other_cid, other_lob in list(lobbies.items()):
@@ -175,6 +182,10 @@ async def stop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     chat_id = chat.id
+    if check_and_clean_stale_game(chat_id):
+        await msg.reply_text("🛑 Qotib qolgan o'yin tozalandi va to'xtatildi. Yangi o'yin ochishingiz mumkin: /game")
+        return
+
     if chat_id not in games and chat_id not in lobbies:
         await msg.reply_text("ℹ️ Hozirda ushbu guruhda faol o'yin yoki lobby yo'q.")
         return

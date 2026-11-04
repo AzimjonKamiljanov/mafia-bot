@@ -6,7 +6,10 @@ from telegram.ext import ContextTypes
 
 from config import DEFAULT_LOBBY_SECONDS, MIN_PLAYERS, MAX_PLAYERS
 from database.models import get_group_settings, track_group_member, get_badge, is_admin
-from core.engine import games, lobbies, find_game_by_user, cancel_lobby_timer, abort_lobby, abort_game, get_chat_lock
+from core.engine import (
+    games, lobbies, find_game_by_user, cancel_lobby_timer, abort_lobby, abort_game, get_chat_lock,
+    is_game_stale, check_and_clean_stale_game
+)
 from phases.lobby import lobby_text, lobby_keyboard, _lobby_timer, call_players_in_chat, start_game
 from core.navigation import resolve_and_cache_group_link
 
@@ -29,9 +32,10 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
         chat_id = int(parts[1])
 
         async with get_chat_lock(chat_id):
+            check_and_clean_stale_game(chat_id)
             if chat_id in games:
                 game = games[chat_id]
-                if game.get("phase") in ("finished", "aborted"):
+                if game.get("phase") in ("finished", "aborted") or is_game_stale(game):
                     games.pop(chat_id, None)
                 else:
                     await q.answer("⚠️ Ushbu guruhda o'yin allaqachon boshlangan!", show_alert=True)
@@ -63,8 +67,11 @@ async def handle_lobby_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
             existing_game = find_game_by_user(uid)
             if existing_game and existing_game.get("chat") != chat_id and existing_game.get("phase") not in ("finished", "aborted") and existing_game.get("alive", {}).get(uid, False):
-                await q.answer("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.", show_alert=True)
-                return True
+                if not is_game_stale(existing_game):
+                    await q.answer("⚠️ Siz boshqa guruhdagi faol o'yinda tiriksiz! Avval o'sha o'yinni tugating.", show_alert=True)
+                    return True
+                else:
+                    check_and_clean_stale_game(existing_game.get("chat", 0))
 
             # Auto-switch from any other lobby smoothly without blocking
             for other_cid, other_lob in list(lobbies.items()):

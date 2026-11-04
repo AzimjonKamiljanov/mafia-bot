@@ -14,7 +14,7 @@ from database.models import (
     get_user, change_balance, get_inventory, take_item
 )
 from core.engine import (
-    display_name, save_runtime, check_winner, finish_game, cancel_game_timer
+    display_name, save_runtime, check_winner, finish_game, cancel_game_timer, touch_game_activity
 )
 from core.clues import generate_forensic_clue
 from core.weather import roll_weather
@@ -205,6 +205,7 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     game["phase"] = "night"
     game["_resolving_night"] = False
     game["_waiting_king"] = False
+    touch_game_activity(game)
 
     # Roll weather
     weather = roll_weather()
@@ -230,7 +231,7 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     await save_runtime(game)
 
     alive_uids = [u for u in game.get("players", []) if game.get("alive", {}).get(u, False)]
-    player_lines = [f"{i}. {display_name(game, uid)}" for i, uid in enumerate(alive_uids, 1)]
+    player_lines = [f"{i}. {html.escape(display_name(game, uid))}" for i, uid in enumerate(alive_uids, 1)]
 
     from roles.base import format_role_display
     blue_roles = []
@@ -279,15 +280,18 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
         [InlineKeyboardButton("Botga o'tish ↗", url=get_bot_deep_link(chat_id, "act"))]
     ])
 
-    await send_atmospheric_message(
-        bot=context.bot,
-        chat_id=chat_id,
-        text=night_announcement,
-        sound_type="night",
-        photo_path=NIGHT_PHOTO_PATH,
-        reply_markup=night_kb,
-        parse_mode="HTML"
-    )
+    try:
+        await send_atmospheric_message(
+            bot=context.bot,
+            chat_id=chat_id,
+            text=night_announcement,
+            sound_type="night",
+            photo_path=NIGHT_PHOTO_PATH,
+            reply_markup=night_kb,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        log.error("Error sending night atmospheric message in chat %s: %s", chat_id, e)
 
     # Deliver action menus to players in PM
     for uid in game.get("players", []):
@@ -336,7 +340,15 @@ async def _night_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, night_n
     from core.engine import games
     game = games.get(chat_id)
     if game and game.get("phase") == "night" and game.get("night") == night_num and not game.get("_finish_started"):
-        await resolve_night(context, game)
+        try:
+            await resolve_night(context, game)
+        except Exception as e:
+            log.exception("Exception in resolve_night for chat %s: %s. Falling back to day_phase...", chat_id, e)
+            try:
+                from phases.day import day_phase
+                await day_phase(context, game)
+            except Exception as e2:
+                log.exception("Critical error transitioning to day_phase for chat %s: %s", chat_id, e2)
 
 async def resolve_night(context: ContextTypes.DEFAULT_TYPE, game: Dict[str, Any]):
     """Execute all night actions according to strict priority chain."""

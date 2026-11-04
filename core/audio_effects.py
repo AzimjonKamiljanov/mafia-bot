@@ -27,7 +27,7 @@ async def _safe_send_message(
     reply_markup=None,
     parse_mode: Optional[str] = "Markdown"
 ):
-    """Safely deliver message with Markdown formatting, falling back to plain text if syntax fails."""
+    """Safely deliver message with formatting, falling back to clean plain text if syntax fails."""
     try:
         return await bot.send_message(
             chat_id=chat_id,
@@ -38,13 +38,19 @@ async def _safe_send_message(
     except Exception as e:
         if parse_mode:
             log.warning("send_message with parse_mode=%s failed (%s), falling back to plain text", parse_mode, e)
-            return await bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                reply_markup=reply_markup,
-                parse_mode=None
-            )
-        raise e
+            import re
+            plain_text = re.sub(r'<[^>]+>', '', text)
+            try:
+                return await bot.send_message(
+                    chat_id=chat_id,
+                    text=plain_text,
+                    reply_markup=reply_markup,
+                    parse_mode=None
+                )
+            except Exception as e2:
+                log.error("Fallback plain text send_message also failed for chat %s: %s", chat_id, e2)
+                return None
+        return None
 
 async def send_atmospheric_message(
     bot: Bot,
