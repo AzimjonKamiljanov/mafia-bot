@@ -12,6 +12,7 @@ from core.engine import (
     abort_game, abort_lobby, cancel_game_timer, cancel_lobby_timer
 )
 from core.graveyard import graveyard_menu_keyboard, graveyard_status_text
+from roles.base import is_valid_role_action
 from phases.lobby import start_game, lobby_text, lobby_keyboard
 from phases.night import (
     get_target_selection_keyboard, resolve_night, complete_night_resolution,
@@ -484,9 +485,24 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = data.split(":")
         action = parts[1]
         actor = int(parts[2])
+
+        # Strict identity check
+        if q.from_user.id != actor:
+            await q.answer("❌ Bu tugma siz uchun emas!", show_alert=True)
+            return
+
         game = find_game_by_user(actor)
         if not game or game.get("phase") != "night":
-            await q.answer("❌ Hozir tungi faza emas.", show_alert=True)
+            await q.answer("❌ Ushbu tugma muddati o'tgan yoki hozir tungi faza emas.", show_alert=True)
+            return
+
+        if not game.get("alive", {}).get(actor, False):
+            await q.answer("💀 Halok bo'lganlar tunda harakat qila olmaydi.", show_alert=True)
+            return
+
+        actor_role = game.get("roles", {}).get(actor)
+        if not is_valid_role_action(actor_role, action, game, actor):
+            await q.answer("❌ Sizning rolingiz ushbu harakatni bajara olmaydi.", show_alert=True)
             return
 
         if action == "sleep":
@@ -634,10 +650,29 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = data.split(":")
         actor = int(parts[1])
         chosen_role = parts[2]
+
+        if q.from_user.id != actor:
+            await q.answer("❌ Bu tugma siz uchun emas!", show_alert=True)
+            return
+
         game = find_game_by_user(actor)
         if not game or game.get("phase") != "night":
-            await q.answer("❌ Hozir tungi faza emas.", show_alert=True)
+            await q.answer("❌ Ushbu tugma muddati o'tgan yoki hozir tungi faza emas.", show_alert=True)
             return
+
+        if not game.get("alive", {}).get(actor, False):
+            await q.answer("💀 Halok bo'lganlar harakat qila olmaydi.", show_alert=True)
+            return
+
+        if game.get("roles", {}).get(actor) != "Firibgar":
+            await q.answer("❌ Faqat Firibgar soxta qiyofa tanlay oladi.", show_alert=True)
+            return
+
+        from config import ROLES
+        if chosen_role not in ROLES:
+            await q.answer("❌ Noto'g'ri rol tanlandi.", show_alert=True)
+            return
+
         game.setdefault("firibgar_disguises", {})[actor] = chosen_role
         game.setdefault("night_done", set()).add(actor)
         record_player_activity(game, actor)
@@ -657,9 +692,46 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         action = parts[1]
         actor = int(parts[2])
         target = int(parts[3])
+
+        if q.from_user.id != actor:
+            await q.answer("❌ Bu tugma siz uchun emas!", show_alert=True)
+            return
+
         game = find_game_by_user(actor)
         if not game or game.get("phase") != "night":
-            await q.answer("❌ Hozir tungi faza emas.", show_alert=True)
+            await q.answer("❌ Ushbu tugma muddati o'tgan yoki hozir tungi faza emas.", show_alert=True)
+            return
+
+        if not game.get("alive", {}).get(actor, False):
+            await q.answer("💀 Halok bo'lganlar tunda harakat qila olmaydi.", show_alert=True)
+            return
+
+        actor_role = game.get("roles", {}).get(actor)
+        if not is_valid_role_action(actor_role, action, game, actor):
+            await q.answer("❌ Sizning rolingiz ushbu harakatni bajara olmaydi.", show_alert=True)
+            return
+
+        # Target validation
+        if target not in game.get("players", []):
+            await q.answer("❌ Tanlangan o'yinchi bu o'yinda qatnashmayapti.", show_alert=True)
+            return
+
+        if not game.get("alive", {}).get(target, False):
+            await q.answer("❌ Tanlangan o'yinchi allaqachon vafot etgan!", show_alert=True)
+            return
+
+        if target == actor:
+            if action in ("protect", "guard"):
+                if actor in game.get("self_protect_used", set()) or game.get("doctor_self_heal_used", {}).get(actor, False):
+                    await q.answer("❌ O'zingizni himoya qilishdan faqat 1 marta foydalana olasiz!", show_alert=True)
+                    return
+            elif action != "will_help":
+                await q.answer("❌ O'zingizni tanlay olmaysiz!", show_alert=True)
+                return
+
+        from config import ROLES
+        if action == "kill" and ROLES.get(game.get("roles", {}).get(target)) == "red":
+            await q.answer("❌ Mafiya a'zosi o'z sherigiga hujum qila olmaydi!", show_alert=True)
             return
 
         tgt_name = display_name(game, target)
@@ -868,22 +940,34 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_str = parts[2]
         game = games.get(chat_id)
         if not game or game.get("phase") != "voting":
-            await q.answer("❌ Ovoz berish yakunlangan.", show_alert=True)
+            await q.answer("❌ Ovoz berish muddati o'tgan yoki yakunlangan.", show_alert=True)
+            return
+        if uid not in game.get("players", []):
+            await q.answer("❌ Siz bu o'yinda qatnashmayapsiz.", show_alert=True)
             return
         if not game.get("alive", {}).get(uid, False):
             await q.answer("💀 Halok bo'lganlar ovoz bera olmaydi.", show_alert=True)
             return
+
+        # Target validation
+        if target_str != "none":
+            try:
+                target_id = int(target_str)
+            except ValueError:
+                await q.answer("❌ Noto'g'ri nishon tanlandi.", show_alert=True)
+                return
+            if target_id == uid:
+                await q.answer("❌ O'zingizga ovoz bera olmaysiz!", show_alert=True)
+                return
+            if target_id not in game.get("players", []) or not game.get("alive", {}).get(target_id, False):
+                await q.answer("❌ Tanlangan o'yinchi tirik emas yoki o'yinda yo'q!", show_alert=True)
+                return
 
         # 1 kishi faqat 1 marta ovoz berishi shart!
         if uid in game.get("votes", {}):
             prev_target = game["votes"][uid]
             prev_name = "🕊️ Hech kimga" if prev_target == "none" else display_name(game, int(prev_target))
             await q.answer(f"⚠️ Siz allaqachon ovoz bergansiz ({prev_name})!\nHar bir o'yinchi faqat 1 marta ovoz bera oladi.", show_alert=True)
-            return
-
-        # O'ziga ovoz berish taqiqlanadi!
-        if target_str != "none" and str(uid) == target_str:
-            await q.answer("❌ O'zingizga ovoz bera olmaysiz!", show_alert=True)
             return
 
         game.setdefault("votes", {})[uid] = target_str
@@ -924,20 +1008,22 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         choice = parts[3]
         game = games.get(chat_id)
         if not game or game.get("phase") != "verdict":
-            await q.answer("❌ Sud hukmi yakunlangan.", show_alert=True)
+            await q.answer("❌ Sud hukmi muddati o'tgan yoki yakunlangan.", show_alert=True)
+            return
+        if uid not in game.get("players", []):
+            await q.answer("❌ Siz bu o'yinda qatnashmayapsiz.", show_alert=True)
             return
         if not game.get("alive", {}).get(uid, False):
             await q.answer("💀 Halok bo'lganlar sud ovozida qatnasha olmaydi.", show_alert=True)
             return
-
-        # 1 kishi faqat 1 marta hukm chiqara oladi!
-        if uid in game.get("verdict_votes", {}):
-            await q.answer("⚠️ Siz allaqachon sud hukmida ovoz bergansiz!\nHar bir o'yinchi faqat 1 marta ovoz bera oladi.", show_alert=True)
-            return
-
-        # Sudlanuvchi o'z hukmida ovoz bera olmaydi!
         if uid == accused:
             await q.answer("❌ Sudlanuvchi o'z hukmida ovoz bera olmaydi!", show_alert=True)
+            return
+        if choice not in ("kill", "forgive"):
+            await q.answer("❌ Noto'g'ri hukm tanlovi.", show_alert=True)
+            return
+        if not game.get("alive", {}).get(accused, False) or accused != game.get("accused_uid"):
+            await q.answer("❌ Sudlanuvchi tirik emas yoki sud jarayoni yakunlangan.", show_alert=True)
             return
 
         game.setdefault("verdict_votes", {})[uid] = choice

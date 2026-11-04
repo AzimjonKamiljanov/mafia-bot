@@ -280,4 +280,96 @@ def format_role_display(role_name: str) -> str:
         return f"{info.icon} {info.name}"
     return f"🎭 {role_name}"
 
+def is_valid_role_action(role: str, action: str, game: Optional[Dict[str, Any]] = None, actor: Optional[int] = None) -> bool:
+    """Validate whether the specified role is permitted to perform the night action."""
+    if action in ("sleep", "will_help"):
+        return True
+
+    if role == "Boy" and game and actor:
+        stolen = game.get("boy_stolen_roles", {}).get(actor)
+        if stolen and stolen.get("accepted") and stolen.get("night") == game.get("night", 1):
+            role = stolen.get("role", role)
+
+    if role == "Detektiv":
+        return action in ("detective", "detective_shoot")
+
+    if role == "Sherif":
+        det_alive = False
+        if game:
+            det_alive = any(
+                game.get("alive", {}).get(u, False) and game.get("roles", {}).get(u) == "Detektiv"
+                for u in game.get("players", [])
+            )
+        is_promoted = bool(game and actor and actor in game.get("sheriff_promoted", set()))
+        if is_promoted or not det_alive:
+            return action in ("detective", "detective_shoot", "sheriff_check")
+        return action in ("sheriff_check",)
+
+    if role in ("Bo'ri", "Bori"):
+        return action in ("kill", "killer_assist")
+
+    if role == "Doktor":
+        return action == "protect"
+
+    if role == "Tansoqchi":
+        return action == "guard"
+
+    if role == "Advokat":
+        return action == "lawyer"
+
+    if role == "Sayyoh":
+        return action == "tourist"
+
+    if role == "Ruhshunos":
+        return action == "medium"
+
+    if role == "Boshliq":
+        return action == "kill"
+
+    if role == "Qotil":
+        boss_alive = False
+        if game:
+            boss_alive = any(
+                game.get("alive", {}).get(u, False) and game.get("roles", {}).get(u) == "Boshliq"
+                for u in game.get("players", [])
+            )
+        if not boss_alive:
+            return action in ("kill", "killer_assist")
+        return action in ("killer_assist",)
+
+    if role == "Soya":
+        return action == "shadow"
+
+    if role == "Soxtachi":
+        return action == "frame"
+
+    if role in ("Maftunkor", "Begona"):
+        return action == "block"
+
+    if role == "Maniak":
+        return action == "maniac_kill"
+
+    if role == "Pirotexnik":
+        return action in ("douse", "ignite")
+
+    if role == "Qasoskor":
+        return action == "revenge"
+
+    if role == "Pul o'g'risi":
+        return action == "coin_thief"
+
+    if role == "Boy":
+        return action == "boy"
+
+    if role == "Savdogar":
+        return action == "merchant"
+
+    if role == "Firibgar":
+        return action == "firibgar"
+
+    if role == "Joker":
+        return action == "joker_laugh"
+
+    return False
+
 from roles.dossier import RoleDossier, ROLE_DOSSIERS, get_role_dossier, format_role_dossier
